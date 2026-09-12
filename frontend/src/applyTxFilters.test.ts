@@ -1,5 +1,3 @@
-// Rode com: npx tsx src/applyTxFilters.test.ts
-import assert from "node:assert";
 import { applyTxFilters, EMPTY_FILTER, effectiveCategory, effectiveCategories, type Transaction } from "./api";
 
 const tx = (p: { amount: string; type: string; category?: string; description?: string }): Transaction => ({
@@ -12,41 +10,42 @@ const tx = (p: { amount: string; type: string; category?: string; description?: 
   account: { id: "a", type: p.type, name: null, item: { institution: "Mercado Pago", userId: "u" } },
 });
 
-const pixEntrada = tx({ amount: "728.44", type: "BANK", description: "Pix recebido" });
-const pixSaida = tx({ amount: "-50", type: "BANK", description: "Pix enviado" });
-const compraCartao = tx({ amount: "24.98", type: "CREDIT", description: "MERCADOLIVRE" });
+describe("applyTxFilters", () => {
+  it("pix/credito = método", () => {
+    const pixEntrada = tx({ amount: "728.44", type: "BANK", description: "Pix recebido" });
+    const pixSaida = tx({ amount: "-50", type: "BANK", description: "Pix enviado" });
+    const compraCartao = tx({ amount: "24.98", type: "CREDIT", description: "MERCADOLIVRE" });
 
-const pix = applyTxFilters([pixEntrada, pixSaida, compraCartao], { ...EMPTY_FILTER, tipo: "pix" });
-// método "pix" inclui entrada E saída de conta, e exclui cartão.
-assert.ok(pix.includes(pixEntrada), "pix deve incluir a entrada via conta (728,44)");
-assert.ok(pix.includes(pixSaida), "pix deve incluir a saída via conta");
-assert.ok(!pix.includes(compraCartao), "pix não deve incluir cartão");
+    const pix = applyTxFilters([pixEntrada, pixSaida, compraCartao], { ...EMPTY_FILTER, tipo: "pix" });
+    // método "pix" inclui entrada E saída de conta, e exclui cartão.
+    expect(pix).toContain(pixEntrada);
+    expect(pix).toContain(pixSaida);
+    expect(pix).not.toContain(compraCartao);
 
-const credito = applyTxFilters([pixEntrada, pixSaida, compraCartao], { ...EMPTY_FILTER, tipo: "credito" });
-assert.deepEqual(credito, [compraCartao], "credito deve conter só o cartão");
+    const credito = applyTxFilters([pixEntrada, pixSaida, compraCartao], { ...EMPTY_FILTER, tipo: "credito" });
+    expect(credito).toEqual([compraCartao]);
+  });
 
-console.log("OK: applyTxFilters (pix/credito = método)");
+  it("categorias múltiplas = E", () => {
+    const semUser = tx({ amount: "-10", type: "BANK", category: "Outros" });
+    const comUser = { ...tx({ amount: "-10", type: "BANK", category: "Outros" }), userCategories: ["Uber", "Viagem"] };
 
-// --- Categorias múltiplas ---
-const semUser = tx({ amount: "-10", type: "BANK", category: "Outros" });
-const comUser = { ...tx({ amount: "-10", type: "BANK", category: "Outros" }), userCategories: ["Uber", "Viagem"] };
+    // principal = 1ª do usuário; sem userCategories cai na Pluggy
+    expect(effectiveCategory(comUser)).toBe("Uber");
+    expect(effectiveCategory(semUser)).toBe("Outros");
+    expect(effectiveCategories(comUser)).toEqual(["Uber", "Viagem"]);
+    expect(effectiveCategories(semUser)).toEqual(["Outros"]);
 
-// principal = 1ª do usuário; sem userCategories cai na Pluggy
-assert.equal(effectiveCategory(comUser), "Uber", "principal = 1ª do usuário");
-assert.equal(effectiveCategory(semUser), "Outros", "sem userCategories usa a Pluggy");
-assert.deepEqual(effectiveCategories(comUser), ["Uber", "Viagem"], "lista completa do usuário");
-assert.deepEqual(effectiveCategories(semUser), ["Outros"], "sem userCategories = [Pluggy]");
-
-// filtro múltiplo = E: a tx precisa ter TODAS as selecionadas (pode ter outras além)
-const semFiltro = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: [] });
-assert.equal(semFiltro.length, 2, "sem categorias selecionadas passa tudo");
-const soViagem = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Viagem"] });
-assert.deepEqual(soViagem, [comUser], "uma categoria: casa quem a contém");
-const uberEViagem = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Uber", "Viagem"] });
-assert.deepEqual(uberEViagem, [comUser], "E: casa quem tem TODAS (Uber e Viagem)");
-const uberEPresente = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Uber", "Presente"] });
-assert.equal(uberEPresente.length, 0, "E: falta Presente -> não casa, mesmo tendo Uber");
-const semMatch = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Presente"] });
-assert.equal(semMatch.length, 0, "nenhuma tx tem Presente -> filtrada");
-
-console.log("OK: applyTxFilters (categorias múltiplas = E)");
+    // filtro múltiplo = E: a tx precisa ter TODAS as selecionadas (pode ter outras além)
+    const semFiltro = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: [] });
+    expect(semFiltro).toHaveLength(2);
+    const soViagem = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Viagem"] });
+    expect(soViagem).toEqual([comUser]);
+    const uberEViagem = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Uber", "Viagem"] });
+    expect(uberEViagem).toEqual([comUser]);
+    const uberEPresente = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Uber", "Presente"] });
+    expect(uberEPresente).toHaveLength(0);
+    const semMatch = applyTxFilters([semUser, comUser], { ...EMPTY_FILTER, categorias: ["Presente"] });
+    expect(semMatch).toHaveLength(0);
+  });
+});
