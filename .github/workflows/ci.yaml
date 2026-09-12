@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  build-and-test:
+    name: Install, Test & Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "npm"
+
+      - name: Install dependencies
+        id: install
+        run: npm ci
+
+      - name: Run unit tests
+        id: test
+        env:
+          CI: true
+        run: npm test
+
+      - name: Build application
+        id: build
+        run: npm run build
+
+      - name: Summarize failure
+        if: failure()
+        run: |
+          echo "## ❌ Pipeline falhou" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.install.outcome }}" = "failure" ]; then
+            echo "- **Install dependencies** falhou (\`npm ci\`). Causa provável: dependência ausente/incompatível ou lockfile desatualizado. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.test.outcome }}" = "failure" ]; then
+            echo "- **Run unit tests** falhou (\`npm test\`). Causa provável: um ou mais testes quebraram. Veja o log do passo acima para o teste e a mensagem de erro." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.build.outcome }}" = "failure" ]; then
+            echo "- **Build application** falhou (\`npm run build\`). Causa provável: erro de compilação/tipagem TypeScript. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Abra a aba **Actions** > este workflow > o passo marcado com ❌ para o log completo." >> "$GITHUB_STEP_SUMMARY"
