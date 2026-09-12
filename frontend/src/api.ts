@@ -78,7 +78,7 @@ export function expenseValue(t: Transaction, includeInternal = false): number {
   if (!includeInternal && isInternalMovement(t)) return 0; // interna: não é saída
   const a = Number(t.amount);
   if (isCard(t)) return a > 0 ? a : 0; // compra no cartão
-  if (isFaturaPayment(t)) return 0; // evita duplo-count com as compras do cartão
+  //if (isFaturaPayment(t)) return 0; // evita duplo-count com as compras do cartão
   return a < 0 ? -a : 0; // saída da conta (pix/débito/transferência)
 }
 
