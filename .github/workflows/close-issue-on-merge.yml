@@ -1,9 +1,12 @@
-# .github/workflows/close-issue-on-merge.yml
 name: Close issue on PR merge
 
 on:
   pull_request:
     types: [closed]
+
+permissions:
+  issues: write
+  contents: read
 
 jobs:
   close-issue:
