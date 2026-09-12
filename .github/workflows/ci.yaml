@@ -13,13 +13,14 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  NODE_VERSION: "22"
-
 jobs:
   build-and-test:
-    name: Install, Test & Build
+    name: Install, Test & Build (${{ matrix.package }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [frontend, backend]
 
     steps:
       - name: Checkout code
@@ -28,36 +29,54 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version-file: ".nvmrc"
           cache: "npm"
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
 
       - name: Install dependencies
         id: install
+        working-directory: ${{ matrix.package }}
         run: npm ci
+
+      - name: Generate Prisma Client
+        if: matrix.package == 'backend'
+        id: prisma-generate
+        working-directory: backend
+        run: npx prisma generate
 
       - name: Run unit tests
         id: test
+        working-directory: ${{ matrix.package }}
         env:
           CI: true
-        run: npm test
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
+            npm test
+          else
+            echo "::warning title=Testes ausentes::Nenhum script \"test\" em ${{ matrix.package }}/package.json — passo pulado por enquanto. Adicione um test runner e este passo passa a rodar de verdade."
+          fi
 
       - name: Build application
         id: build
+        working-directory: ${{ matrix.package }}
         run: npm run build
 
       - name: Summarize failure
         if: failure()
         run: |
-          echo "## ❌ Pipeline falhou" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ❌ Pipeline falhou (${{ matrix.package }})" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.install.outcome }}" = "failure" ]; then
-            echo "- **Install dependencies** falhou (\`npm ci\`). Causa provável: dependência ausente/incompatível ou lockfile desatualizado. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Install dependencies** falhou (\`npm ci\` em \`${{ matrix.package }}/\`). Causa provável: dependência ausente/incompatível ou lockfile desatualizado. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.prisma-generate.outcome }}" = "failure" ]; then
+            echo "- **Generate Prisma Client** falhou (\`npx prisma generate\`). Causa provável: erro de sintaxe no \`schema.prisma\`. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ steps.test.outcome }}" = "failure" ]; then
-            echo "- **Run unit tests** falhou (\`npm test\`). Causa provável: um ou mais testes quebraram. Veja o log do passo acima para o teste e a mensagem de erro." >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Run unit tests** falhou (\`npm test\` em \`${{ matrix.package }}/\`). Causa provável: um ou mais testes quebraram. Veja o log do passo acima para o teste e a mensagem de erro." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ steps.build.outcome }}" = "failure" ]; then
-            echo "- **Build application** falhou (\`npm run build\`). Causa provável: erro de compilação/tipagem TypeScript. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Build application** falhou (\`npm run build\` em \`${{ matrix.package }}/\`). Causa provável: erro de compilação/tipagem TypeScript. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Abra a aba **Actions** > este workflow > o passo marcado com ❌ para o log completo." >> "$GITHUB_STEP_SUMMARY"
