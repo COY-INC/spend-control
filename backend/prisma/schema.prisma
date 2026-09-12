@@ -1,0 +1,134 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id    String @id @default(cuid())
+  name  String
+  pin   String @default("0000") // hash scrypt do PIN (ver modules/auth/pin.ts); legado em texto migra no login
+  items Item[]
+}
+
+model Item {
+  id            String    @id @default(cuid())
+  userId        String
+  pluggyItemId  String    @unique
+  institution   String
+  status        String    @default("UPDATED") // status de sincronização da Pluggy
+  updatedAt     DateTime  @default(now()) @updatedAt // hora do último sync (syncItem faz item.update)
+  lastChangeAt    DateTime? // hora do último sync que trouxe transação nova/alterada
+  lastChangeCount Int?      // quantas novas/alteradas nesse último sync com mudança
+  user          User      @relation(fields: [userId], references: [id])
+  accounts      Account[]
+  investments   Investment[]
+}
+
+// Posição de investimento (importada da Pluggy). Substituída a cada sync (carteira atual).
+model Investment {
+  id                 String  @id @default(cuid())
+  itemId             String
+  pluggyInvestmentId String  @unique
+  name               String
+  type               String // EQUITY, FIXED_INCOME, MUTUAL_FUND, ETF, COE, SECURITY, OTHER
+  balance            Decimal // valor atual da posição
+  item               Item    @relation(fields: [itemId], references: [id])
+}
+
+model Account {
+  id              String           @id @default(cuid())
+  itemId          String
+  type            String
+  name            String? // nome/produto da conta na origem (ex.: "Nu Pagamentos S.A.")
+  brand           String? // bandeira do cartão (MASTERCARD, VISA, ELO...)
+  balance         Decimal          @default(0)
+  reservedBalances Json?           // saldo reservado (caixinhas/cofrinhos): [{ name, amount }]
+  additionalCards String[]         @default([]) // 4 últimos dígitos dos cartões DEPENDENTES (creditData.additionalCards); principal = qualquer outro
+  pluggyAccountId String?          @unique
+  item            Item             @relation(fields: [itemId], references: [id])
+  transactions    Transaction[]
+  bills           CreditCardBill[]
+}
+
+model CreditCardBill {
+  id           String    @id @default(cuid())
+  accountId    String
+  pluggyBillId String    @unique
+  closingDate  DateTime? // dia de fechamento do ciclo (pode faltar)
+  dueDate      DateTime // vencimento
+  totalAmount  Decimal
+  account      Account   @relation(fields: [accountId], references: [id])
+}
+
+// Orçamento mensal por categoria (compartilhado do casal): um limite por categoria.
+model Budget {
+  id       String  @id @default(cuid())
+  category String  @unique
+  limit    Decimal
+}
+
+// Lista de categorias personalizável (compartilhada do casal), usada nos dropdowns de
+// "Minha categoria" e no editor de orçamentos. String livre, sem FK: apagar uma categoria
+// não afeta Transaction.userCategories/Budget.category já gravados, só some do dropdown.
+model Category {
+  id   String @id @default(cuid())
+  name String @unique
+}
+
+model Transaction {
+  id                  String   @id @default(cuid())
+  accountId           String
+  amount              Decimal
+  date                DateTime
+  description         String
+  category            String // categoria automática da Pluggy (read-only)
+  userCategories      String[] // categorias do usuário; ordem importa ([0]=principal); [] herda a Pluggy
+  cardNumber          String?  // 4 últimos dígitos do cartão usado (creditCardMetadata.cardNumber); separa principal/dependente
+  installmentNumber   Int?     // nº da parcela (creditCardMetadata.installmentNumber); fonte estruturada, não depende de "N/M" no texto
+  totalInstallments   Int?     // total de parcelas (creditCardMetadata.totalInstallments)
+  billId              String?  // id da fatura na Pluggy (creditCardMetadata.billId); casa com CreditCardBill.pluggyBillId sem depender de data
+  status              String?  // POSTED | PENDING (Pluggy); PENDING nunca pode cair numa fatura JÁ fechada só por coincidência de data
+  manual              Boolean  @default(false) // linha criada MANUALMENTE pelo usuário (parcela futura projetada de banco que não projeta, ex.: Bradesco/MP); pluggyTransactionId fica null e o sync nunca a toca
+  pluggyTransactionId String?  @unique
+  createdAt           DateTime @default(now()) // 1ª vez que a transação foi vista (no sync)
+  account             Account  @relation(fields: [accountId], references: [id])
+}
+
+// Sugestão de parcela futura RECUSADA pelo usuário, ancorada na identidade da compra
+// (accountId | base | valor | totalInstallments) — mesmo padrão de AnticipatedInstallment.
+// Sem isso a sugestão reapareceria a cada scan (ela é derivada dos dados reais, não persistida).
+model DismissedSuggestion {
+  id  String   @id @default(cuid())
+  key String   @unique
+  at  DateTime @default(now())
+}
+
+// Comentário livre do usuário, ancorado na IDENTIDADE da compra (não na linha volátil de
+// Transaction): "accountId|descrição-base|valor". Assim persiste entre parcelas/recorrências
+// e sobrevive ao churn de pluggyTransactionId da MeuPluggy.
+model TransactionNote {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  note      String
+  updatedAt DateTime @updatedAt
+}
+
+// Parcela de cartão marcada MANUALMENTE como antecipada. O app trata a data efetiva da
+// parcela como `at` (momento da antecipação), jogando-a no ciclo aberto. Ancorada na
+// IDENTIDADE da parcela (não na linha volátil), pra sobreviver ao churn da MeuPluggy.
+model AnticipatedInstallment {
+  id  String   @id @default(cuid())
+  key String   @unique // accountId | base | "N/M" | valor
+  at  DateTime @default(now())
+}
+
+// Estado global do app (linha única id="singleton"). Guarda a marca d'água do
+// "dispensar tudo agora" das pendências.
+model AppState {
+  id                 String    @id @default("singleton")
+  pendingDismissedAt DateTime?
+}

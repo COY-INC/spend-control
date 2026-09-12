@@ -1,0 +1,126 @@
+@import "tailwindcss";
+
+/* Habilita o dark por classe (.dark no <html>) em vez de só prefers-color-scheme. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Tokens semânticos (padrão shadcn). Valores claros no :root, sobrescritos no .dark;
+   utilitários (bg-card, text-foreground, border-border…) trocam de tema sozinhos. */
+:root {
+  color-scheme: light;
+  --background: #f8fafc;
+  --foreground: #0f172a;
+  --card: #ffffff;
+  --card-foreground: #0f172a;
+  --muted: #f1f5f9;
+  --muted-foreground: #64748b;
+  --border: #e2e8f0;
+  --primary: #0f172a;
+  --primary-foreground: #ffffff;
+  --accent: #f1f5f9;
+  --accent-foreground: #0f172a;
+  /* Acento de marca — índigo, usado com parcimônia (foco, nav ativo, links).
+     Quem carrega cor é o banco; o acento global fica quieto de propósito. */
+  --brand: #4f46e5;
+  --brand-foreground: #ffffff;
+}
+
+.dark {
+  color-scheme: dark;
+  --background: #0b1120;
+  --foreground: #e2e8f0;
+  --card: #141c2e;
+  --card-foreground: #e2e8f0;
+  --muted: #1c2536;
+  --muted-foreground: #94a3b8;
+  --border: #1f2a40;
+  --primary: #f1f5f9;
+  --primary-foreground: #0f172a;
+  --accent: #1e293b;
+  --accent-foreground: #e2e8f0;
+  --brand: #818cf8;
+  --brand-foreground: #0b1120;
+}
+
+/* inline: as utilitárias referenciam var(--…) em runtime, então o .dark as afeta. */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  /* Hanken Grotesk pra UI/texto; Geist Mono pros números (look "ledger"/extrato). */
+  --font-sans: "Hanken Grotesk", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "Cascadia Code", monospace;
+}
+
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Eyebrow: rótulo curto em mono, caixa-alta, tracking largo. Estrutura que "rotula". */
+.eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem; /* 11px */
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Números monetários no look ledger: mono + tabular pra alinhar as colunas. */
+.ledger {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum" 1;
+  letter-spacing: -0.01em;
+}
+
+/* Respeita quem pediu menos movimento: corta transições/animações/transform. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .hover\:-translate-y-0\.5:hover {
+    transform: none !important;
+  }
+}
+
+/* Recharts seguindo os tokens (contraste correto no dark). Atributos de apresentação
+   do SVG perdem pra CSS, então isso sobrepõe os defaults claros da lib. */
+.recharts-text {
+  fill: var(--muted-foreground);
+}
+.recharts-cartesian-axis-line,
+.recharts-cartesian-axis-tick-line {
+  stroke: var(--border);
+}
+.recharts-default-tooltip {
+  background: var(--card) !important;
+  border-color: var(--border) !important;
+  border-radius: 0.5rem;
+}
+.recharts-tooltip-label,
+.recharts-tooltip-item {
+  color: var(--foreground) !important;
+}
+/* Realce de hover (cursor) sutil em vez do cinza-claro padrão. */
+.recharts-tooltip-cursor {
+  fill: var(--muted-foreground);
+  opacity: 0.12;
+}

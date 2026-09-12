@@ -1,0 +1,25 @@
+# deps
+node_modules/
+
+# builds
+dist/
+backend/dist/
+frontend/dist/
+
+# env / secrets
+.env
+*.local
+
+# prisma local db
+*.db
+*.db-journal
+
+# claude / tooling local state
+.remember/
+memory/
+.claude/
+
+# logs / os
+*.log
+.DS_Store
+Thumbs.db

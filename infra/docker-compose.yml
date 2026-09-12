@@ -1,0 +1,11 @@
+version: '3.8'
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: adminpassword
+      POSTGRES_DB: findb
+    ports:
+      # 5433 no host: Postgres 17 nativo do Windows ocupa a 5432
+      - "5433:5432"

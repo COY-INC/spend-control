@@ -1,0 +1,35 @@
+{
+  "name": "fin-dash-backend",
+  "version": "0.1.1",
+  "private": true,
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "vercel-build": "prisma generate && prisma migrate deploy",
+    "db:migrate": "prisma migrate dev",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
+    "seed": "tsx prisma/seed.ts",
+    "dedup": "tsx prisma/dedup-transactions.ts",
+    "webhook:mock": "tsx scripts/webhook-mock.ts",
+    "seed:mock": "tsx prisma/seed-mock.ts",
+    "db:setup:mock": "prisma migrate deploy && tsx prisma/seed-mock.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "jsonwebtoken": "^9.0.3",
+    "pluggy-sdk": "^0.90.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^22.10.0",
+    "prisma": "^5.22.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  }
+}
