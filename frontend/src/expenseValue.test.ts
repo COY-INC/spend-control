@@ -46,4 +46,14 @@ assert.equal(
   24.98,
 );
 
+// Transferência para reserva não é uma despesa; com includeInternal=true entra no total bruto.
+const reserva = tx({
+  amount: "-300",
+  description: "Dinheiro reservado para férias",
+  category: "Transfers",
+  account: { type: "BANK" },
+});
+assert.equal(expenseValue(reserva), 0, "reserva não deve contar como despesa");
+assert.equal(expenseValue(reserva, true), 300, "includeInternal=true deve incluir a reserva");
+
 console.log("OK: expenseValue");
