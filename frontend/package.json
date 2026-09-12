@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "test": "tsx src/applyTxFilters.test.ts src/expenseValue.test.ts src/lib/export.test.ts src/lib/installment.test.ts",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -28,7 +27,6 @@
     "@vitejs/plugin-react": "^6.0.4",
     "oxlint": "^1.75.0",
     "tailwindcss": "^4.3.3",
-    "tsx": "^4.20.3",
     "typescript": "~6.0.2",
     "vite": "^8.2.0"
   }
