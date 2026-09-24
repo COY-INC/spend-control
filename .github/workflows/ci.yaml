@@ -14,8 +14,61 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-and-test:
-    name: Install, Test & Build (${{ matrix.package }})
+  build:
+    name: Build (${{ matrix.package }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        package: [frontend, backend]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: ".nvmrc"
+          cache: "npm"
+          cache-dependency-path: ${{ matrix.package }}/package-lock.json
+
+      - name: Install dependencies
+        id: install
+        working-directory: ${{ matrix.package }}
+        run: npm ci
+
+      - name: Generate Prisma Client
+        if: matrix.package == 'backend'
+        id: prisma-generate
+        working-directory: backend
+        run: npx prisma generate
+
+      - name: Build application
+        id: build
+        working-directory: ${{ matrix.package }}
+        run: npm run build
+
+      - name: Summarize failure
+        if: failure()
+        run: |
+          echo "## ❌ Build falhou (${{ matrix.package }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.install.outcome }}" = "failure" ]; then
+            echo "- **Install dependencies** falhou (\`npm ci\` em \`${{ matrix.package }}/\`). Causa provável: dependência ausente/incompatível ou lockfile desatualizado. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.prisma-generate.outcome }}" = "failure" ]; then
+            echo "- **Generate Prisma Client** falhou (\`npx prisma generate\`). Causa provável: erro de sintaxe no \`schema.prisma\`. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.build.outcome }}" = "failure" ]; then
+            echo "- **Build application** falhou (\`npm run build\` em \`${{ matrix.package }}/\`). Causa provável: erro de compilação/tipagem TypeScript. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Os testes não rodam enquanto o build não passar. Abra a aba **Actions** > este workflow > o passo marcado com ❌ para o log completo." >> "$GITHUB_STEP_SUMMARY"
+
+  test:
+    name: Test (${{ matrix.package }})
+    needs: build
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -49,22 +102,12 @@ jobs:
         working-directory: ${{ matrix.package }}
         env:
           CI: true
-        run: |
-          if node -e "process.exit(require('./package.json').scripts?.test ? 0 : 1)"; then
-            npm test
-          else
-            echo "::warning title=Testes ausentes::Nenhum script \"test\" em ${{ matrix.package }}/package.json — passo pulado por enquanto. Adicione um test runner e este passo passa a rodar de verdade."
-          fi
-
-      - name: Build application
-        id: build
-        working-directory: ${{ matrix.package }}
-        run: npm run build
+        run: npm test
 
       - name: Summarize failure
         if: failure()
         run: |
-          echo "## ❌ Pipeline falhou (${{ matrix.package }})" >> "$GITHUB_STEP_SUMMARY"
+          echo "## ❌ Testes falharam (${{ matrix.package }})" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           if [ "${{ steps.install.outcome }}" = "failure" ]; then
             echo "- **Install dependencies** falhou (\`npm ci\` em \`${{ matrix.package }}/\`). Causa provável: dependência ausente/incompatível ou lockfile desatualizado. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
@@ -74,9 +117,6 @@ jobs:
           fi
           if [ "${{ steps.test.outcome }}" = "failure" ]; then
             echo "- **Run unit tests** falhou (\`npm test\` em \`${{ matrix.package }}/\`). Causa provável: um ou mais testes quebraram. Veja o log do passo acima para o teste e a mensagem de erro." >> "$GITHUB_STEP_SUMMARY"
-          fi
-          if [ "${{ steps.build.outcome }}" = "failure" ]; then
-            echo "- **Build application** falhou (\`npm run build\` em \`${{ matrix.package }}/\`). Causa provável: erro de compilação/tipagem TypeScript. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Abra a aba **Actions** > este workflow > o passo marcado com ❌ para o log completo." >> "$GITHUB_STEP_SUMMARY"
