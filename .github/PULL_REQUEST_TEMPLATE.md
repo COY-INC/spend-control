@@ -18,6 +18,7 @@ Closes #
 ## Checklist
 
 - [ ] Branch segue o padrão `feature-<issue>` / `bug-<issue>`
+- [ ] Título do PR segue o padrão `ISSUE-<numero> - <titulo descritivo>`
 - [ ] CI (frontend + backend) passando
 - [ ] Testado localmente
 - [ ] `.env.example` atualizado, se novas variáveis de ambiente foram criadas

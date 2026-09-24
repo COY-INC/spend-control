@@ -28,6 +28,7 @@ Commits pequenos e coesos são preferíveis a um commit gigante no fim da branch
 ## 4. Pull Request para `main`
 
 - Abra o PR usando o template (`.github/PULL_REQUEST_TEMPLATE.md`).
+- O título do PR deve seguir o formato `ISSUE-<numero> - <titulo descritivo do PR>`, onde `<numero>` é o número da issue relacionada (ex.: `ISSUE-11 - Adiciona regra de título de PR ao CONTRIBUTING`).
 - Referencie a issue com `Closes #<numero>` na descrição — isso fecha a issue automaticamente quando o GitHub processa o merge, **além** da action `close-issue-on-merge.yml` (que fecha e comenta a issue com base no número extraído do nome da branch). As duas coisas são redundantes de propósito: se uma falhar, a outra garante o fechamento.
 - O PR só pode ser mergeado quando:
   - A pipeline de CI (`ci.yaml`) passar tanto no job `frontend` quanto no job `backend` (install, testes, build).
