@@ -3,7 +3,7 @@
 Réplica do projeto montada para desenvolvimento local **sem Pluggy e sem Docker**: banco no
 Postgres nativo da máquina e um seed determinístico que popula todas as seções do dashboard.
 
-Diferenças em relação ao [COMO_RODAR.md](./COMO_RODAR.md) original:
+Diferenças em relação ao passo a passo padrão ([README, seção 3](./README.md#3-como-rodar-localmente-sem-docker)):
 
 | | Original | Este ambiente |
 |---|---|---|
