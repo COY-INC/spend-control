@@ -147,9 +147,14 @@ docker compose -f docker-compose.prod.yml up
 cd frontend && npm test
 ```
 
-**Backend:**
+**Backend** (test runner nativo do Node via `tsx --test`):
 
-> 🚧 **Em construção** — o backend ainda não possui script `npm test`.
+```bash
+cd backend && npm test
+```
+
+Roda todos os arquivos `*.test.ts` em `src/`. Um teste quebrado faz o comando sair com
+código ≠ 0.
 
 ---
 
