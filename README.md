@@ -212,20 +212,6 @@ no volume do projeto `spend-control-prod`; `down -v` apaga esses dados.
 **Aceite e evidências:** siga [o checklist de entrega](docs/entrega-containers.md).
 A publicação pública e o teste em outra máquina precisam ser comprovados antes de fechar a issue.
 
-**Alternativa com artifact:** o workflow disponibiliza `images-<SHA>` por 7 dias
-nas execuções de push na `main` que geraram o artifact. Baixe e extraia `images.tar`,
-execute `docker load --input images.tar` e marque as imagens carregadas. O artifact
-usa SHA internamente; no Docker Hub, as tags publicadas são a versão e `latest`:
-
-```bash
-# Substitua SHA pelo commit da execução baixada.
-docker tag spend-control-backend:SHA coyinc/spend-control-backend:artifact-local
-docker tag spend-control-frontend:SHA coyinc/spend-control-frontend:artifact-local
-```
-
-Defina `IMAGE_TAG=artifact-local` no `.env` e use o mesmo Compose, sem executar
-`pull` para essa tag local. A imagem PostgreSQL também
-precisa estar disponível. Esse caminho complementa a publicação pública no Docker Hub.
 
 ---
 
@@ -261,9 +247,8 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
 2. **Test** (matriz, após o Build): `npm test`
 3. **Docker**: builda as imagens com o mesmo `infra/docker-compose.yml` do uso local, sobe a
    stack com `docker compose up --wait` (espera todos os containers ficarem `healthy`), confere
-   `GET /health` da API e a página do frontend, marca as imagens `spend-control-backend` e
-   `spend-control-frontend` com a tag do SHA do commit e salva essas imagens validadas como
-   artefato (`docker save`) — este último passo só em push na `main`, onde o CD o consome
+   `GET /health` da API e a página do frontend e salva as imagens validadas como
+   artefato (`docker save`) para o CD — este último passo só em push na `main`
 4. Em caso de falha, o resumo do job mostra qual etapa quebrou e a causa provável
 
 **CD** — só roda depois que **todos** os jobs de CI passam, e só em push na `main`
@@ -277,9 +262,8 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
 5. Cria a tag `vX.Y.Z` no commit do merge — só depois do push, então toda tag criada pelo
    pipeline tem imagem correspondente no Docker Hub
 
-**Rastreabilidade:** a tag de versão identifica o commit exato de cada imagem — a imagem
-`1.0.3` corresponde à tag git `v1.0.3`, criada no commit do merge
-(`git rev-list -n1 v1.0.3`). O resumo do job CD também registra o SHA de cada publicação.
+**Rastreabilidade:** a imagem `1.0.3` no Docker Hub corresponde à tag Git `v1.0.3`.
+Use a versão publicada em `IMAGE_TAG` para executar uma entrega específica.
 Como a `main` exige PR aprovado, toda versão corresponde a um merge revisado.
 
 Para subir **minor** ou **major**, crie a tag manualmente no último commit da `main`
