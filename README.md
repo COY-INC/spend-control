@@ -171,7 +171,8 @@ sem `build`, bind mounts ou dependência do código-fonte. O PostgreSQL fica na 
 interna, com volume persistente. Este fluxo é para avaliação local em modo mock.
 
 Em uma pasta vazia, coloque apenas `docker-compose.prod.yml` e uma cópia de
-`.env.prod.example` renomeada para `.env`. Com Docker e Compose instalados:
+`.env.prod.example` renomeada para `.env`.
+
 O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.3`) e
 `latest`. As versões disponíveis estão nas
 [tags do repositório](https://github.com/COY-INC/spend-control/tags).
@@ -196,7 +197,8 @@ curl --fail http://localhost:3333/auth/users
 docker compose --env-file .env -f docker-compose.prod.yml logs --tail=100
 ```
 
-Para usar uma versão rastreável, defina `IMAGE_TAG` no `.env` com o SHA publicado,
+Para usar uma versão rastreável, defina `IMAGE_TAG` no `.env` com uma versão publicada
+(por exemplo, `1.0.3`, sem o prefixo `v` da tag Git),
 execute `docker compose --env-file .env -f docker-compose.prod.yml pull` e repita o `up`.
 `DOCKERHUB_NAMESPACE` permite selecionar a conta que publicou as imagens;
 `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `JWT_SECRET`,
@@ -212,15 +214,17 @@ A publicação pública e o teste em outra máquina precisam ser comprovados ant
 
 **Alternativa com artifact:** o workflow disponibiliza `images-<SHA>` por 7 dias
 nas execuções de push na `main` que geraram o artifact. Baixe e extraia `images.tar`,
-execute `docker load --input images.tar` e marque as imagens carregadas:
+execute `docker load --input images.tar` e marque as imagens carregadas. O artifact
+usa SHA internamente; no Docker Hub, as tags publicadas são a versão e `latest`:
 
 ```bash
 # Substitua SHA pelo commit da execução baixada.
-docker tag spend-control-backend:SHA coyinc/spend-control-backend:SHA
-docker tag spend-control-frontend:SHA coyinc/spend-control-frontend:SHA
+docker tag spend-control-backend:SHA coyinc/spend-control-backend:artifact-local
+docker tag spend-control-frontend:SHA coyinc/spend-control-frontend:artifact-local
 ```
 
-Defina `IMAGE_TAG=SHA` no `.env` e use o mesmo Compose. A imagem PostgreSQL também
+Defina `IMAGE_TAG=artifact-local` no `.env` e use o mesmo Compose, sem executar
+`pull` para essa tag local. A imagem PostgreSQL também
 precisa estar disponível. Esse caminho complementa a publicação pública no Docker Hub.
 
 ---
