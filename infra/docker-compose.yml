@@ -31,12 +31,7 @@ services:
     depends_on:
       db:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3333/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
-      interval: 10s
-      timeout: 5s
-      start_period: 30s
-      retries: 5
+    # Healthcheck vem da imagem (ver HEALTHCHECK no backend/Dockerfile) — sem duplicar aqui.
 
   frontend:
     image: spend-control-frontend:local

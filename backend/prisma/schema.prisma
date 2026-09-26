@@ -1,6 +1,6 @@
 generator client {
   provider      = "prisma-client-js"
-  // autodetecção de openssl falha no node:20-alpine; força o engine compatível com OpenSSL 3.x
+  // autodetecção de openssl falha no node:22-alpine; força o engine compatível com OpenSSL 3.x
   binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
 }
 
