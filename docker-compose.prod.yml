@@ -1,3 +1,4 @@
+name: spend-control-prod
 services:
   db:
     image: postgres:15-alpine
@@ -5,8 +6,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no ambiente ou .env}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente ou .env}
       POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no ambiente ou .env}
-    ports:
-    - 127.0.0.1:${DB_PORT:?Defina DB_PORT}:5432
     volumes:
     - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -17,9 +16,7 @@ services:
       timeout: 5s
       retries: 10
   backend:
-    image: spend-control-backend:local
-    build:
-      context: ../backend
+    image: ${DOCKERHUB_NAMESPACE:?Defina DOCKERHUB_NAMESPACE}/spend-control-backend:${IMAGE_TAG:?Defina IMAGE_TAG}
     ports:
     - 127.0.0.1:${API_PORT:?Defina API_PORT}:3333
     environment:
@@ -42,11 +39,7 @@ services:
       start_period: 30s
       retries: 5
   frontend:
-    image: spend-control-frontend:local
-    build:
-      context: ../frontend
-      args:
-        VITE_API_URL: ${VITE_API_URL:?Defina VITE_API_URL}
+    image: ${DOCKERHUB_NAMESPACE:?Defina DOCKERHUB_NAMESPACE}/spend-control-frontend:${IMAGE_TAG:?Defina IMAGE_TAG}
     ports:
     - 127.0.0.1:${FRONTEND_PORT:?Defina FRONTEND_PORT}:8080
     depends_on:
