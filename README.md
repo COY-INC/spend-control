@@ -249,20 +249,34 @@ A publicação pública e o teste em outra máquina precisam ser comprovados ant
 
 ## 6. Como rodar os testes
 
-**Frontend** (Jest + Testing Library):
+**Pré-requisito** — Node.js 22 (`nvm use` na raiz) e, uma vez só, se ainda não feito:
 
 ```bash
-cd frontend && npm test
+cd backend && npm ci && npx prisma generate && cd ..
+cd frontend && npm ci && cd ..
 ```
 
-**Backend** (test runner nativo do Node via `tsx --test`):
+**Comando único** — na raiz do repositório, roda os testes do backend e do frontend:
 
 ```bash
-cd backend && npm test
+npm test
 ```
 
-Roda todos os arquivos `*.test.ts` em `src/`. Um teste quebrado faz o comando sair com
-código ≠ 0.
+Um teste quebrado em qualquer um dos pacotes faz o comando sair com código ≠ 0.
+
+Para rodar só um lado:
+
+- **Backend** (test runner nativo do Node via `tsx --test`, todos os `*.test.ts` em `src/`):
+
+  ```bash
+  cd backend && npm test
+  ```
+
+- **Frontend** (Jest + Testing Library):
+
+  ```bash
+  cd frontend && npm test
+  ```
 
 ---
 
