@@ -172,6 +172,9 @@ interna, com volume persistente. Este fluxo é para avaliação local em modo mo
 
 Em uma pasta vazia, coloque apenas `docker-compose.prod.yml` e uma cópia de
 `.env.prod.example` renomeada para `.env`. Com Docker e Compose instalados:
+O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.3`) e
+`latest`. As versões disponíveis estão nas
+[tags do repositório](https://github.com/COY-INC/spend-control/tags).
 
 ```bash
 docker pull coyinc/spend-control-backend:latest
@@ -265,7 +268,20 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
 1. Baixa o artefato do CI e faz `docker load` — **a imagem publicada é a mesma validada
    no CI**, sem rebuild
 2. Login no Docker Hub com os secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN`
-3. Publica cada imagem com duas tags: o SHA do commit (rastreável) e `latest`
+3. Calcula a versão: incrementa o patch da última tag `vX.Y.Z` do git (a primeira é `v1.0.0`)
+4. Publica cada imagem com duas tags: a versão (`1.0.3`) e `latest`
+5. Cria a tag `vX.Y.Z` no commit do merge — só depois do push, então toda tag criada pelo
+   pipeline tem imagem correspondente no Docker Hub
+
+**Rastreabilidade:** a tag de versão identifica o commit exato de cada imagem — a imagem
+`1.0.3` corresponde à tag git `v1.0.3`, criada no commit do merge
+(`git rev-list -n1 v1.0.3`). O resumo do job CD também registra o SHA de cada publicação.
+Como a `main` exige PR aprovado, toda versão corresponde a um merge revisado.
+
+Para subir **minor** ou **major**, crie a tag manualmente no último commit da `main`
+(`git tag v1.1.0 && git push origin v1.1.0`); os próximos merges continuam a partir dela
+(`v1.1.1`, `v1.1.2`...). O push de tag não dispara o pipeline, então a tag manual não tem
+imagem própria — a primeira imagem da nova linha é a do merge seguinte (`1.1.1`).
 
 **Automação de issues** — `.github/workflows/close-issue-on-merge.yml`
 Quando um PR é mergeado, fecha automaticamente a issue cujo número aparece no nome da

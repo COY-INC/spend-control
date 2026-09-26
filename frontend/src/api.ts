@@ -24,6 +24,7 @@ export type Transaction = {
   anticipated?: boolean; // parcela marcada como antecipada (data efetiva movida p/ o ciclo aberto)
   installmentNumber?: number | null; // nº da parcela (creditCardMetadata); fonte estruturada p/ "N/M"
   totalInstallments?: number | null; // total de parcelas (creditCardMetadata)
+  manual: boolean; // criada manualmente pelo usuário (lançamento avulso ou parcela projetada)
   account: { id: string; type: string; name?: string | null; item: { institution: string; userId: string } };
 };
 
@@ -332,6 +333,18 @@ export const api = {
   },
   updateTransaction: (id: string, patch: { userCategories?: string[]; description?: string }) =>
     patchReq<Transaction>(`/transactions/${id}`, patch),
+  // Lançamento avulso (dinheiro, Pix fora da conta sincronizada, etc.) — não depende de
+  // parcelamento (ver acceptManualInstallments, que é só p/ POST /commitments/manual).
+  createTransaction: (body: {
+    accountId: string;
+    amount: number;
+    date: string;
+    description: string;
+    category?: string;
+    userCategories?: string[];
+  }) => post<Transaction>("/transactions", body),
+  // Só apaga se manual: true (mesmo cuidado do deleteManualInstallment).
+  deleteTransaction: (id: string) => del<{ deleted: number }>(`/transactions/${id}`),
   allAccounts: (userId?: string) =>
     get<AccountFull[]>("/accounts" + (userId ? `?userId=${userId}` : "")),
   cards: (userId?: string) =>

@@ -2,6 +2,7 @@ name: CI/CD
 
 on:
   push:
+    branches: ["**"] # só branches: push de tag (ex.: v1.1.0 manual) não roda o pipeline
   pull_request:
     branches: [main]
 
@@ -212,8 +213,37 @@ jobs:
     needs: [build, test, docker]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write # criar a tag de versão no repositório
 
     steps:
+      # Histórico completo + tags, para calcular a próxima versão.
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Incrementa o patch da última tag vX.Y.Z (primeira: v1.0.0). Se o commit já tem
+      # uma tag de versão (re-run do job), reaproveita. Para subir minor/major, crie a
+      # tag manualmente (ex.: v1.1.0) — as próximas continuam a partir dela.
+      - name: Compute version
+        id: version
+        run: |
+          current=$(git tag --points-at HEAD --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+          if [ -n "$current" ]; then
+            version="${current#v}"
+          else
+            last=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)
+            if [ -z "$last" ]; then
+              version="1.0.0"
+            else
+              IFS=. read -r major minor patch <<< "${last#v}"
+              version="$major.$minor.$((patch + 1))"
+            fi
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Versão: v$version"
+
       # Reaproveita a imagem validada pelo job docker — o CD nunca rebuilda.
       - name: Download images artifact
         uses: actions/download-artifact@v4
@@ -232,12 +262,30 @@ jobs:
       - name: Tag e push das imagens
         env:
           REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           for image in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
             repo="$REGISTRY_USER/${image%%:*}"
-            docker tag "$image" "$repo:${{ github.sha }}"
-            docker tag "$image" "$repo:latest"
-            docker push "$repo:${{ github.sha }}"
-            docker push "$repo:latest"
-            echo "- \`$repo:${{ github.sha }}\` e \`$repo:latest\`" >> "$GITHUB_STEP_SUMMARY"
+            # A versão é rastreável: X.Y.Z -> tag git vX.Y.Z -> commit do merge.
+            for tag in "$VERSION" latest; do
+              docker tag "$image" "$repo:$tag"
+              docker push "$repo:$tag"
+            done
+            echo "- \`$repo:$VERSION\` e \`$repo:latest\` (commit \`${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
           done
+
+      # Só depois do push: a tag no git garante que a versão existe no Docker Hub.
+      # Tags criadas com o GITHUB_TOKEN não disparam novos workflows (sem loop).
+      - name: Create git tag
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          if git rev-parse -q --verify "refs/tags/v$VERSION" >/dev/null; then
+            echo "Tag v$VERSION já existe neste commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git tag -a "v$VERSION" -m "Release v$VERSION" "${{ github.sha }}"
+          git push origin "v$VERSION"
+          echo "- Tag git \`v$VERSION\` criada em \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
