@@ -23,6 +23,7 @@ export function Transacoes() {
             userId={scope === "my" ? userId : undefined}
             includeInternal={filter.incluirInternos}
             onNoteSaved={reload}
+            onDeleted={reload}
           />
         </CardContent>
       </Card>

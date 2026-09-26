@@ -1,6 +1,6 @@
 import { useState } from "react";
 import type { Transaction } from "@/api";
-import { brl, expenseValue, incomeValue } from "@/api";
+import { api, brl, expenseValue, incomeValue } from "@/api";
 import { CategoryMultiSelect } from "@/components/CategoryMultiSelect";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { TransactionTimelineModal } from "@/components/TransactionTimelineModal";
@@ -11,6 +11,7 @@ export function TransactionsTable({
   userId,
   includeInternal = false,
   onNoteSaved,
+  onDeleted,
 }: {
   transactions: Transaction[];
   // categories === [] limpa as categorias do usuário (volta a herdar a da Pluggy)
@@ -18,8 +19,24 @@ export function TransactionsTable({
   userId?: string; // escopo do histórico da timeline (indefinido = casal/todos)
   includeInternal?: boolean;
   onNoteSaved?: () => void;
+  onDeleted?: () => void; // recarrega a lista após apagar um lançamento manual
 }) {
   const [detail, setDetail] = useState<Transaction | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
+
+  const handleDelete = async (t: Transaction) => {
+    if (!window.confirm(`Apagar o lançamento manual "${t.description}"?`)) return;
+    setDeleting(t.id);
+    try {
+      await api.deleteTransaction(t.id);
+      onDeleted?.();
+    } catch (e) {
+      console.error(e);
+      alert("Não foi possível apagar a transação.");
+    } finally {
+      setDeleting(null);
+    }
+  };
 
   // Paginação: 20 por página; volta pra 1ª página quando a lista muda (filtros/mês).
   const PAGE = 20;
@@ -58,8 +75,8 @@ export function TransactionsTable({
           <TableHead className="hidden md:table-cell">Minha categoria</TableHead>
           <TableHead className="hidden md:table-cell">Instituição</TableHead>
           <TableHead className="w-[104px] text-right md:w-auto">Valor</TableHead>
-          <TableHead className="w-10">
-            <span className="sr-only">Detalhes</span>
+          <TableHead className="w-20">
+            <span className="sr-only">Ações</span>
           </TableHead>
         </TableRow>
       </TableHeader>
@@ -106,18 +123,33 @@ export function TransactionsTable({
             <TableCell className={`whitespace-nowrap text-right font-medium ledger ${color}`}>
               {brl(value)}
             </TableCell>
-            <TableCell className="w-10 text-right">
-              <button
-                onClick={() => setDetail(t)}
-                aria-label="Ver histórico deste contato"
-                title="Ver histórico deste contato"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="9" />
-                  <path d="M12 8h.01M11 12h1v4h1" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </button>
+            <TableCell className="w-20 text-right">
+              <div className="flex items-center justify-end">
+                {t.manual && (
+                  <button
+                    onClick={() => handleDelete(t)}
+                    disabled={deleting === t.id}
+                    aria-label="Apagar lançamento manual"
+                    title="Apagar lançamento manual"
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-rose-600 disabled:opacity-50 dark:hover:text-rose-400"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M3 6h18M8 6V4h8v2m-1 0v14a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1V6" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                )}
+                <button
+                  onClick={() => setDetail(t)}
+                  aria-label="Ver histórico deste contato"
+                  title="Ver histórico deste contato"
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <circle cx="12" cy="12" r="9" />
+                    <path d="M12 8h.01M11 12h1v4h1" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </button>
+              </div>
             </TableCell>
           </TableRow>
           );
