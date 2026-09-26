@@ -1,8 +1,7 @@
-name: CI
+name: CI/CD
 
 on:
   push:
-    branches: [main]
   pull_request:
     branches: [main]
 
@@ -11,7 +10,12 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Na main não cancela: um push para o Docker Hub não pode ser interrompido no meio.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+env:
+  API_IMAGE: spend-control-api:${{ github.sha }}
+  WEB_IMAGE: spend-control-web:${{ github.sha }}
 
 jobs:
   build:
@@ -44,6 +48,12 @@ jobs:
         working-directory: backend
         run: npx prisma generate
 
+      - name: Lint
+        if: matrix.package == 'frontend'
+        id: lint
+        working-directory: frontend
+        run: npm run lint
+
       - name: Build application
         id: build
         working-directory: ${{ matrix.package }}
@@ -59,6 +69,9 @@ jobs:
           fi
           if [ "${{ steps.prisma-generate.outcome }}" = "failure" ]; then
             echo "- **Generate Prisma Client** falhou (\`npx prisma generate\`). Causa provável: erro de sintaxe no \`schema.prisma\`. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.lint.outcome }}" = "failure" ]; then
+            echo "- **Lint** falhou (\`npm run lint\` em \`frontend/\`). Causa provável: regra do oxlint violada. Veja o log do passo acima para o arquivo e a linha." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ steps.build.outcome }}" = "failure" ]; then
             echo "- **Build application** falhou (\`npm run build\` em \`${{ matrix.package }}/\`). Causa provável: erro de compilação/tipagem TypeScript. Veja o log do passo acima para o erro exato." >> "$GITHUB_STEP_SUMMARY"
@@ -120,3 +133,96 @@ jobs:
           fi
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Abra a aba **Actions** > este workflow > o passo marcado com ❌ para o log completo." >> "$GITHUB_STEP_SUMMARY"
+
+  docker:
+    name: Docker (build & validate)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Prepare .env
+        run: cp .env.example .env
+
+      # Compose builda as imagens com as tags $API_IMAGE/$WEB_IMAGE (sha do commit),
+      # usando os mesmos build args que o docker-compose.yml usa localmente.
+      - name: Build images
+        id: build
+        run: docker compose build
+
+      - name: Start stack
+        id: up
+        run: docker compose up -d --no-build --wait --wait-timeout 120
+
+      - name: Check API /health
+        id: health
+        run: curl -fsS --retry 5 --retry-delay 3 --retry-all-errors http://localhost:3333/health
+
+      - name: Show container logs
+        if: failure() && steps.up.outcome != 'skipped'
+        run: docker compose logs --no-color
+
+      - name: Stop stack
+        if: always()
+        run: docker compose down -v
+
+      - name: Save images
+        run: docker save --output images.tar "$API_IMAGE" "$WEB_IMAGE"
+
+      - name: Upload images artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: images-${{ github.sha }}
+          path: images.tar
+          retention-days: 7
+
+      - name: Summarize failure
+        if: failure()
+        run: |
+          echo "## ❌ Validação Docker falhou" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [ "${{ steps.build.outcome }}" = "failure" ]; then
+            echo "- **Build images** falhou (\`docker compose build\`). Causa provável: erro em um Dockerfile ou no build da aplicação dentro dele." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.up.outcome }}" = "failure" ]; then
+            echo "- **Start stack** falhou (\`docker compose up --wait\`). Algum container não ficou \`healthy\` — veja o passo **Show container logs**." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.health.outcome }}" = "failure" ]; then
+            echo "- **Check API /health** falhou. A API subiu mas não respondeu 200 em \`/health\` (banco inacessível?) — veja o passo **Show container logs**." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  cd:
+    name: CD (publish Docker Hub)
+    needs: [build, test, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      # Reaproveita a imagem validada pelo job docker — o CD nunca rebuilda.
+      - name: Download images artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: images-${{ github.sha }}
+
+      - name: Load images
+        run: docker load --input images.tar
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Tag e push das imagens
+        env:
+          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+        run: |
+          for image in "$API_IMAGE" "$WEB_IMAGE"; do
+            repo="$REGISTRY_USER/${image%%:*}"
+            docker tag "$image" "$repo:${{ github.sha }}"
+            docker tag "$image" "$repo:latest"
+            docker push "$repo:${{ github.sha }}"
+            docker push "$repo:latest"
+            echo "- \`$repo:${{ github.sha }}\` e \`$repo:latest\`" >> "$GITHUB_STEP_SUMMARY"
+          done
