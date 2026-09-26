@@ -25,6 +25,15 @@ const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
 app.use(cors({ origin: corsOrigins }));
 app.use(express.json());
 
+app.get("/health", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({ status: "ok" });
+  } catch {
+    res.status(503).json({ status: "error" });
+  }
+});
+
 app.use("/auth", authRouter); // público (login)
 app.use("/pluggy", pluggyRouter); // webhook é público; o resto se protege no próprio router
 app.use(requireAuth); // ↓ todas as rotas abaixo exigem "Authorization: Bearer <jwt>"
