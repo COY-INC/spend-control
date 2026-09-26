@@ -4,6 +4,7 @@ node_modules/
 # builds
 dist/
 backend/dist/
+backend/dist-seed/
 frontend/dist/
 
 # env / secrets

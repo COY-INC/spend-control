@@ -150,7 +150,7 @@ Login de exemplo: **Marido / PIN 1234** ou **Esposa / PIN 5678**.
 Para recriar os exemplos manualmente (**apaga os dados atuais**):
 
 ```bash
-docker compose -f infra/docker-compose.yml exec backend npm run seed:mock
+docker compose -f infra/docker-compose.yml exec backend npm run seed:mock:dist
 ```
 
 Para encerrar, use `docker compose -f infra/docker-compose.yml down`. O volume
