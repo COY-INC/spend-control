@@ -29,9 +29,13 @@ COPY --chown=node:node --from=builder /app/prisma/migrations ./prisma/migrations
 COPY --chown=node:node --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --chown=node:node --from=builder /app/dist ./dist
 COPY --chown=node:node --from=builder /app/dist-seed ./dist-seed
+COPY --chown=node:node docker-entrypoint.sh ./
+RUN chmod +x docker-entrypoint.sh
 
 USER node
 EXPOSE 3333
-# Prisma CLI vem do lockfile (nunca baixa do npm no start).
-# Popula exemplos apenas em modo mock e sem usuários; preserva dados nos reinícios.
-CMD ["sh", "-c", "set -e; ./node_modules/.bin/prisma migrate deploy; if [ \"${PLUGGY_MOCK:-0}\" = \"1\" ]; then users=$(node -e 'const {PrismaClient}=require(\"@prisma/client\"); const p=new PrismaClient(); p.user.count().then(n=>console.log(n)).catch(e=>{console.error(e);process.exitCode=1}).finally(()=>p.$disconnect());'); if [ \"$users\" = \"0\" ]; then npm run seed:mock:dist; fi; fi; exec node dist/index.js"]
+# GET /health precisa responder 200 (API de pé e banco acessível). Mesmos parâmetros que antes
+# viviam só no healthcheck do infra/docker-compose.yml — a imagem agora carrega o seu próprio.
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+  CMD node -e "fetch('http://127.0.0.1:3333/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+CMD ["./docker-entrypoint.sh"]
