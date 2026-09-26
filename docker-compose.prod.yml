@@ -3,9 +3,9 @@ services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no ambiente ou .env}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente ou .env}
-      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no ambiente ou .env}
+      POSTGRES_USER: ${POSTGRES_USER:-admin}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-adminpassword}
+      POSTGRES_DB: ${POSTGRES_DB:-findb}
     volumes:
     - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -16,14 +16,14 @@ services:
       timeout: 5s
       retries: 10
   backend:
-    image: ${DOCKERHUB_NAMESPACE:?Defina DOCKERHUB_NAMESPACE}/spend-control-backend:${IMAGE_TAG:?Defina IMAGE_TAG}
+    image: ${DOCKERHUB_NAMESPACE:-coyinc}/spend-control-backend:${IMAGE_TAG:-latest}
     ports:
-    - 127.0.0.1:${API_PORT:?Defina API_PORT}:3333
+    - 127.0.0.1:${API_PORT:-3333}:3333
     environment:
-      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no ambiente ou .env}
-      CORS_ORIGIN: ${CORS_ORIGIN:?Defina CORS_ORIGIN no ambiente ou .env}
-      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no ambiente ou .env}
-      PLUGGY_MOCK: ${PLUGGY_MOCK:?Defina PLUGGY_MOCK no ambiente ou .env}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://admin:adminpassword@db:5432/findb}
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080,http://127.0.0.1:8080}
+      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me}
+      PLUGGY_MOCK: ${PLUGGY_MOCK:-1}
       PORT: '3333'
     depends_on:
       db:
@@ -39,9 +39,9 @@ services:
       start_period: 30s
       retries: 5
   frontend:
-    image: ${DOCKERHUB_NAMESPACE:?Defina DOCKERHUB_NAMESPACE}/spend-control-frontend:${IMAGE_TAG:?Defina IMAGE_TAG}
+    image: ${DOCKERHUB_NAMESPACE:-coyinc}/spend-control-frontend:${IMAGE_TAG:-latest}
     ports:
-    - 127.0.0.1:${FRONTEND_PORT:?Defina FRONTEND_PORT}:8080
+    - 127.0.0.1:${FRONTEND_PORT:-8080}:8080
     depends_on:
       backend:
         condition: service_healthy

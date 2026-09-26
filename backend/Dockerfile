@@ -35,7 +35,7 @@ RUN chmod +x docker-entrypoint.sh
 USER node
 EXPOSE 3333
 # GET /health precisa responder 200 (API de pé e banco acessível). Mesmos parâmetros que antes
-# viviam só no healthcheck do infra/docker-compose.yml — a imagem agora carrega o seu próprio.
+# viviam só no healthcheck do docker-compose.yml — a imagem agora carrega o seu próprio.
 HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
   CMD node -e "fetch('http://127.0.0.1:3333/health').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
 CMD ["./docker-entrypoint.sh"]

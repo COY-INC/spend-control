@@ -4,7 +4,9 @@
 
 1. Registre nome do avaliador, data, sistema/arquitetura e SHA das imagens.
 2. Use uma máquina diferente da utilizada na publicação, com Docker e Compose.
-3. Em pasta limpa, coloque somente `docker-compose.prod.yml` e `.env` (baseado em `.env.prod.example`). Não copie o código-fonte.
+3. Em pasta limpa, coloque somente `docker-compose.prod.yml`. Não copie o código-fonte. O `.env`
+   (baseado em `.env.prod.example`) é opcional — o Compose já tem valores padrão — mas use-o
+   para fixar `IMAGE_TAG` numa versão publicada e garantir rastreabilidade do teste.
 4. Execute os pulls sem credenciais. Em Linux/macOS, use uma configuração temporária vazia, sem encerrar sua sessão Docker habitual:
 
    ```bash

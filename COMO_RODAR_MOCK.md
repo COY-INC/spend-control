@@ -81,7 +81,7 @@ cd backend && npm run seed:mock
 
 ## Voltar a usar Docker (opcional)
 
-Se o Docker Desktop voltar a rodar, dá para usar o Postgres do `infra/docker-compose.yml`:
-suba com `docker compose -f infra/docker-compose.yml up -d` e troque a `DATABASE_URL` do
+Se o Docker Desktop voltar a rodar, dá para usar o Postgres do `docker-compose.yml` da raiz:
+suba só o banco com `docker compose up -d db` e troque a `DATABASE_URL` do
 `backend/.env` para `postgresql://admin:adminpassword@localhost:5433/findb`, depois rode
 `npm run db:setup:mock` de novo.
