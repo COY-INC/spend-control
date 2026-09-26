@@ -31,7 +31,7 @@ um **modo mock** (`PLUGGY_MOCK=1`) que dispensa credenciais e usa dados fictíci
 spend-control/
 ├── backend/     API REST (Express + Prisma)
 ├── frontend/    SPA React (Vite)
-├── infra/       docker-compose do PostgreSQL
+├── infra/       docker-compose
 └── .github/     workflows do GitHub Actions
 ```
 
@@ -116,16 +116,47 @@ reinicie o backend.
 
 ## 4. Como rodar com Docker Compose
 
-> 🚧 **Em construção** — será preenchida na issue do Docker Compose.
-
-Caminho principal de avaliação. Objetivo: subir banco, API e frontend com um único comando.
+Sobe **frontend + API + PostgreSQL**, com migrations automáticas e healthchecks.
+O modo Pluggy mock está habilitado, sem exigir credenciais externas.
 
 ```bash
 git clone https://github.com/COY-INC/spend-control.git
 cd spend-control
-cp .env.example .env
-docker compose up --build
+docker compose -f infra/docker-compose.yml up -d --build --wait
 ```
+
+- **Frontend** → http://localhost:8080
+- **API / saúde** → http://localhost:3333/health
+- **Banco para ferramentas locais** → `localhost:5433` (usuário `admin`, senha `adminpassword`, banco `findb`)
+
+Os valores padrão são exclusivos para desenvolvimento local. Não é necessário criar
+`.env`. Para personalizar portas e JWT, copie `infra/.env.example` para `infra/.env`
+e repita o comando com `--build`. A URL da API é incorporada ao build do frontend;
+a API usa `db:5432` na rede interna, enquanto o navegador usa `localhost`.
+
+Para verificar os serviços e os logs:
+
+```bash
+docker compose -f infra/docker-compose.yml ps
+curl --fail http://localhost:3333/health
+curl --fail http://localhost:8080/
+docker compose -f infra/docker-compose.yml logs --tail=100
+```
+
+Em modo mock, o backend carrega dados de exemplo automaticamente após as migrations
+quando não há usuários no banco. Reinícios preservam os dados existentes.
+Login de exemplo: **Marido / PIN 1234** ou **Esposa / PIN 5678**.
+
+Para recriar os exemplos manualmente (**apaga os dados atuais**):
+
+```bash
+docker compose -f infra/docker-compose.yml exec backend npm run seed:mock
+```
+
+Para encerrar, use `docker compose -f infra/docker-compose.yml down`. O volume
+`db-data` preserva os dados; adicionar `-v` apaga o banco. Se uma porta estiver ocupada,
+altere a respectiva variável em `infra/.env`. Se houver erro de permissão no socket
+Docker em Linux, execute os comandos com `sudo` no seu terminal.
 
 ---
 
