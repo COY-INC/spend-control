@@ -22,18 +22,20 @@ um **modo mock** (`PLUGGY_MOCK=1`) que dispensa credenciais e usa dados fictíci
 | Banco de dados | PostgreSQL |
 | Frontend | React 19, Vite, TypeScript, Tailwind CSS, Recharts |
 | Integração | Pluggy SDK (connect token, webhook, sync de transações) |
-| Testes | Jest + Testing Library (frontend) |
-| CI | GitHub Actions |
+| Testes | Jest + Testing Library (frontend), test runner nativo do Node via `tsx --test` (backend) |
+| Containers | Docker (multi-stage, usuário não-root), Docker Compose |
+| CI/CD | GitHub Actions → imagens publicadas no Docker Hub |
 
 **Estrutura do repositório**
 
 ```
 spend-control/
-├── backend/                  API REST (Express + Prisma)
-├── frontend/                 SPA React (Vite)
-├── docker-compose.yml        stack de desenvolvimento (build local)
-├── docker-compose.prod.yml   stack de entrega (imagens publicadas)
-└── .github/                  workflows do GitHub Actions
+├── backend/                 API REST (Express + Prisma) + Dockerfile
+├── frontend/                SPA React (Vite) + Dockerfile (Nginx)
+├── docker-compose.yml       stack de desenvolvimento (build local) + .env.example
+├── docker-compose.prod.yml  stack de entrega (imagens publicadas) + .env.prod.example
+├── docs/                    checklist de entrega e documentos de apoio
+└── .github/                 workflows (CI/CD e automação de issues)
 ```
 
 ---
@@ -63,55 +65,82 @@ spend-control/
 
 ---
 
-## 3. Como rodar localmente (sem Docker)
+## 3. Como rodar localmente (modo desenvolvimento)
+
+Backend e frontend rodam direto no Node, com recarga automática ao salvar; só o banco
+roda em Docker. Para subir tudo em containers, veja a [seção 4](#4-como-rodar-com-docker-compose).
 
 **Pré-requisitos**
-- Node.js **22.18.0** (fixado em `.nvmrc` — use `nvm use` na raiz)
-- PostgreSQL rodando (nativo ou só o banco via `docker compose up -d db`)
+- **Node.js 22** — o CI usa a `22.18.0` (arquivo `.nvmrc`). Com nvm:
+  `nvm install` (Linux/macOS — lê o `.nvmrc`, instala se faltar e ativa) ou
+  `nvm install 22.18.0 && nvm use 22.18.0` (Windows, nvm-windows)
+- **Docker Desktop aberto** (para o PostgreSQL)
+- No Windows, use o **Git Bash** — os comandos abaixo são de terminal bash
 
-**Passo a passo**
+Todos os comandos partem da **raiz do repositório**.
+
+**1. Instalar as dependências**
 
 ```bash
-# 1. Dependências
-cd backend  && npm install
-cd ../frontend && npm install
+(cd backend && npm ci)
+(cd frontend && npm ci)
+```
 
-# 2. Variáveis de ambiente (os .env não são versionados)
-cp backend/.env.example  backend/.env
+**2. Criar os arquivos `.env`** — os exemplos já vêm com valores que funcionam localmente
+(banco do Docker, JWT de desenvolvimento e Pluggy em modo mock):
+
+```bash
+cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 ```
 
-Conteúdo mínimo do `backend/.env` para rodar com dados fictícios:
-
-```
-DATABASE_URL="postgresql://admin:adminpassword@localhost:5433/findb"
-JWT_SECRET="dev-secret-troque"
-PLUGGY_MOCK=1
-```
-
-O `frontend/.env` pode ficar vazio — os valores padrão apontam para a API local.
+**3. Subir só o banco** (PostgreSQL na porta `5433` do host; o `docker-compose.yml` da raiz
+já tem valores padrão, não precisa de `.env`):
 
 ```bash
-# 3. Banco (opcional, se não tiver Postgres nativo) — só o serviço db, na porta 5433
-docker compose up -d db
-
-# 4. Tabelas + dados de exemplo (primeira vez ou após mudar o schema)
-cd backend && npm run db:setup
-
-# 5. Rodar — dois terminais, backend primeiro
-cd backend  && npm run dev     # API -> http://localhost:3333
-cd frontend && npm run dev     # Web -> http://localhost:5173
+docker compose up -d --wait db
 ```
 
-Acesse **http://localhost:5173** e entre com um dos PINs criados pelo seed:
-**Marido → `1234`** · **Esposa → `5678`**.
+> Não esqueça o `db` no final: sem ele o Compose sobe também o backend em container,
+> que disputa a porta 3333 com o `npm run dev` (ver [Troubleshooting](#10-troubleshooting)).
 
-> Para um banco com muito mais dados (6 meses de transações, faturas, parcelas, investimentos),
-> veja [COMO_RODAR_MOCK.md](./COMO_RODAR_MOCK.md).
+**4. Criar as tabelas e os dados de exemplo** (primeira vez, ou para zerar os dados):
+
+```bash
+(cd backend && npm run db:setup)
+```
+
+**5. Rodar** — dois terminais, os dois abertos na raiz do repositório:
+
+```bash
+# Terminal 1 — API em http://localhost:3333
+cd backend && npm run dev
+```
+
+Confira se a API subiu antes de abrir o frontend — deve responder `{"status":"ok"}`:
+
+```bash
+curl http://localhost:3333/health
+```
+
+```bash
+# Terminal 2 — frontend em http://localhost:5173
+cd frontend && npm run dev
+```
+
+**6. Entrar** — abra **http://localhost:5173** e use um dos usuários do seed:
+**Marido → PIN `1234`** · **Esposa → PIN `5678`**.
+
+**Para encerrar:** `Ctrl+C` nos dois terminais e `docker compose stop db`.
+Os dados ficam no volume e voltam no próximo `up`.
+
+> Para um banco com muito mais dados (6 meses de transações, faturas, parcelas,
+> investimentos), use `npm run db:setup:mock` no passo 4 — detalhes em
+> [COMO_RODAR_MOCK.md](./COMO_RODAR_MOCK.md).
 
 **Pluggy real (opcional):** preencha `PLUGGY_CLIENT_ID` e `PLUGGY_CLIENT_SECRET`
-(obtidos em [dashboard.pluggy.ai](https://dashboard.pluggy.ai)), remova `PLUGGY_MOCK` e
-reinicie o backend.
+(de [dashboard.pluggy.ai](https://dashboard.pluggy.ai)) no `backend/.env`, apague a linha
+`PLUGGY_MOCK=1` e reinicie o backend.
 
 ---
 
@@ -226,20 +255,34 @@ A publicação pública e o teste em outra máquina precisam ser comprovados ant
 
 ## 6. Como rodar os testes
 
-**Frontend** (Jest + Testing Library):
+**Pré-requisito** — Node.js 22 (`nvm use` na raiz) e, uma vez só, se ainda não feito:
 
 ```bash
-cd frontend && npm test
+cd backend && npm ci && npx prisma generate && cd ..
+cd frontend && npm ci && cd ..
 ```
 
-**Backend** (test runner nativo do Node via `tsx --test`):
+**Comando único** — na raiz do repositório, roda os testes do backend e do frontend:
 
 ```bash
-cd backend && npm test
+npm test
 ```
 
-Roda todos os arquivos `*.test.ts` em `src/`. Um teste quebrado faz o comando sair com
-código ≠ 0.
+Um teste quebrado em qualquer um dos pacotes faz o comando sair com código ≠ 0.
+
+Para rodar só um lado:
+
+- **Backend** (test runner nativo do Node via `tsx --test`, todos os `*.test.ts` em `src/`):
+
+  ```bash
+  cd backend && npm test
+  ```
+
+- **Frontend** (Jest + Testing Library):
+
+  ```bash
+  cd frontend && npm test
+  ```
 
 ---
 
@@ -285,15 +328,23 @@ imagem própria — a primeira imagem da nova linha é a do merge seguinte (`1.1
 Quando um PR é mergeado, fecha automaticamente a issue cujo número aparece no nome da
 branch (ex.: branch `feature-18` fecha a issue #18).
 
-**Fluxo de trabalho (GitHub Flow):** issue → branch curta `<nº-issue>-descricao` a partir da
-`main` → Pull Request → CI verde + revisão → merge.
+**Fluxo de trabalho (GitHub Flow):** issue → branch curta `feature-<nº>` ou `bug-<nº>` a partir
+da `main` → Pull Request `ISSUE-<nº> - título` → CI verde + 1 aprovação → merge.
+Detalhes em [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ---
 
 ## 8. Variáveis de ambiente
 
-Os valores reais ficam em arquivos `.env`, que **não são versionados**. Os modelos estão em
-`backend/.env.example` e `frontend/.env.example`.
+Os valores reais ficam em arquivos `.env`, que **não são versionados**. Cada arquivo tem
+um modelo `.example` versionado, com valores que funcionam localmente (nunca segredos reais):
+
+| Arquivo | Usado por | Modelo |
+|---|---|---|
+| `backend/.env` | Backend rodando com `npm run dev` (seção 3) | `backend/.env.example` |
+| `frontend/.env` | Frontend rodando com `npm run dev` (seção 3) | `frontend/.env.example` |
+| `.env` (raiz) | Compose de desenvolvimento (seções 3 e 4) — opcional, o Compose já tem padrões | `.env.example` |
+| `.env` (pasta do compose de entrega) | Compose de produção (seção 5) — opcional, idem | `.env.prod.example` |
 
 **Backend** (`backend/.env`)
 
@@ -316,6 +367,24 @@ Os valores reais ficam em arquivos `.env`, que **não são versionados**. Os mod
 | `VITE_API_URL` | URL base da API (padrão `http://localhost:3333`) | `http://localhost:3333` |
 | `VITE_PLUGGY_CONNECTOR_IDS` | Conectores exibidos no widget Pluggy, separados por vírgula (vazio = todos) | `200` |
 | `VITE_INTERNAL_PARTY_PATTERN` | Regex que identifica transferências internas do casal (não contam como entrada/saída) | `fulano\|ciclana` |
+
+**Docker Compose** (`.env` de desenvolvimento e `.env` de produção)
+
+Todas têm valor padrão de exemplo no próprio Compose — o `.env` é opcional, só para
+sobrescrever algum valor.
+
+| Variável | Para que serve | Valor de exemplo |
+|---|---|---|
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Usuário, senha e nome do banco criados no primeiro `up` | `admin` / `adminpassword` / `findb` |
+| `DATABASE_URL` | Conexão da API com o banco — usa o serviço `db` e a porta **interna** 5432; as credenciais devem bater com as acima | `postgresql://admin:adminpassword@db:5432/findb` |
+| `JWT_SECRET` | Segredo dos tokens de login | `local-development-only-change-me` |
+| `PLUGGY_MOCK` | `1` usa o stub da Pluggy e carrega dados de exemplo em banco vazio | `1` |
+| `API_PORT` / `FRONTEND_PORT` | Portas publicadas no host (`127.0.0.1`) | `3333` / `8080` |
+| `DB_PORT` | Porta do banco no host — só no compose de desenvolvimento | `5433` |
+| `CORS_ORIGIN` | Origens liberadas no CORS da API | `http://localhost:8080,http://127.0.0.1:8080` |
+| `VITE_API_URL` | URL da API fixada no build do frontend — só no compose de desenvolvimento | `http://localhost:3333` |
+| `DOCKERHUB_NAMESPACE` | Conta do Docker Hub de onde vêm as imagens — só em produção | `coyinc` |
+| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.3`) — só em produção | `latest` |
 
 ---
 
@@ -346,3 +415,13 @@ assinar nem validar tokens.
 O backend precisa estar rodando antes do frontend, na porta 3333. Com `VITE_API_URL` vazio o
 frontend usa `http://localhost:3333`; se mudar a porta da API, ajuste essa variável e
 também o `CORS_ORIGIN` do backend.
+
+**`db:setup` falha com `Environment variable not found: DATABASE_URL`**
+O `backend/.env` não existe ou está vazio. Rode o passo 2 da seção 3
+(`cp backend/.env.example backend/.env`).
+
+**Docker: `failed to connect to the docker API` / `open //./pipe/dockerDesktopLinuxEngine`**
+O Docker Desktop não está aberto. Abra-o, espere ele indicar que está em execução e repita o comando.
+
+**`nvm use` não funciona no Windows**
+O nvm-windows não lê o `.nvmrc`. Informe a versão: `nvm install 22.18.0 && nvm use 22.18.0`.

@@ -1,9 +1,9 @@
-# Como rodar o fin-dash localmente com dados mock
+# Como rodar o spend-control localmente com dados mock
 
 Réplica do projeto montada para desenvolvimento local **sem Pluggy e sem Docker**: banco no
 Postgres nativo da máquina e um seed determinístico que popula todas as seções do dashboard.
 
-Diferenças em relação ao passo a passo padrão ([README, seção 3](./README.md#3-como-rodar-localmente-sem-docker)):
+Diferenças em relação ao passo a passo padrão ([README, seção 3](./README.md#3-como-rodar-localmente-modo-desenvolvimento)):
 
 | | Original | Este ambiente |
 |---|---|---|
@@ -15,25 +15,37 @@ Diferenças em relação ao passo a passo padrão ([README, seção 3](./README.
 ---
 
 ## Pré-requisitos
-- **Node 22** (`nvm use` na raiz do projeto lê o `.nvmrc`)
+- **Node 22** — com nvm, `nvm install` na raiz (lê o `.nvmrc`); no Windows,
+  `nvm install 22.18.0 && nvm use 22.18.0`
 - **PostgreSQL rodando em `localhost:5432`** com o seu usuário do sistema podendo criar bancos
   (é o Postgres que já está instalado na máquina — não precisa de Docker)
 
 ## 1. Primeira vez
 
+Todos os comandos partem da raiz do repositório.
+
 ```bash
-nvm use                                    # Node 22.18.0
 createdb -h localhost -p 5432 findb_mock   # cria o banco (só uma vez)
 
-cd backend  && npm install
-cd ../frontend && npm install
+(cd backend && npm ci)
+(cd frontend && npm ci)
 
-cd ../backend && npm run db:setup:mock     # migrations + seed rico
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
 ```
 
-Os arquivos `.env` já estão criados (não são versionados). O do backend aponta para
-`postgresql://<seu-usuário>@localhost:5432/findb_mock`, define um `JWT_SECRET` de dev,
-liga `PLUGGY_MOCK=1` e desliga o sync automático (`SYNC_INTERVAL_HOURS=0`).
+No `backend/.env`, troque a `DATABASE_URL` para o Postgres nativo (os demais valores do
+exemplo já servem):
+
+```
+DATABASE_URL="postgresql://<seu-usuário>@localhost:5432/findb_mock"
+```
+
+Depois crie as tabelas e os dados:
+
+```bash
+(cd backend && npm run db:setup:mock)      # migrations + seed rico
+```
 
 ## 2. Rodar (dois terminais, backend primeiro)
 
@@ -79,9 +91,14 @@ Para regerar o banco do zero a qualquer momento:
 cd backend && npm run seed:mock
 ```
 
-## Voltar a usar Docker (opcional)
+## Usar o Postgres do Docker (opcional)
 
-Se o Docker Desktop voltar a rodar, dá para usar o Postgres do `docker-compose.yml` da raiz:
-suba só o banco com `docker compose up -d db` e troque a `DATABASE_URL` do
-`backend/.env` para `postgresql://admin:adminpassword@localhost:5433/findb`, depois rode
-`npm run db:setup:mock` de novo.
+Para usar o banco do `docker-compose.yml` da raiz em vez do Postgres nativo, suba só o
+serviço `db` (o Compose já tem valores padrão, não precisa de `.env`) e volte a
+`DATABASE_URL` do `backend/.env` para o valor do exemplo
+(`postgresql://admin:adminpassword@localhost:5433/findb`):
+
+```bash
+docker compose up -d --wait db
+(cd backend && npm run db:setup:mock)
+```

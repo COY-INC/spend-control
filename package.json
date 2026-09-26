@@ -1,0 +1,7 @@
+{
+  "name": "spend-control",
+  "private": true,
+  "scripts": {
+    "test": "npm test --prefix backend && npm test --prefix frontend"
+  }
+}
