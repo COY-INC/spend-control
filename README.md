@@ -43,17 +43,45 @@ spend-control/
 ## 2. Arquitetura
 
 ```
-┌─────────────┐   HTTP/JSON   ┌──────────────────┐    SQL     ┌──────────────┐
-│  Navegador  │ ────────────▶ │   API (backend)  │ ─────────▶ │  PostgreSQL  │
-│  React SPA  │ ◀──────────── │  Express :3333   │ ◀───────── │    :5432     │
-│   :5173     │  Bearer JWT   └────────┬─────────┘   Prisma   └──────────────┘
-└─────────────┘                        │  ▲
-                        connect token, │  │ webhook (novas transações)
-                        sync periódico ▼  │
-                               ┌──────────────────┐
-                               │  Pluggy (Open    │   (substituída por stub
-                               │  Finance)        │    quando PLUGGY_MOCK=1)
-                               └──────────────────┘
+┌─────────────────────┐  HTTP/JSON  ┌──────────────────┐     SQL     ┌───────────────────┐
+│      Navegador      │ ──────────▶ │  API (backend)   │ ──────────▶ │    PostgreSQL     │
+│      React SPA      │ ◀────────── │  Express :3333   │ ◀────────── │      :5432        │
+│ dev:    :5173 Vite  │  Bearer JWT └────────┬─────────┘   Prisma    │ (dev: host :5433) │
+│ Docker: :8080 Nginx │                      │  ▲                    └───────────────────┘
+└─────────────────────┘      connect token,  │  │ webhook (novas transações)
+                             sync periódico  ▼  │
+                                    ┌──────────────────┐
+                                    │  Pluggy (Open    │   (substituída por stub
+                                    │  Finance)        │    quando PLUGGY_MOCK=1)
+                                    └──────────────────┘
+```
+
+As portas mudam conforme a forma de execução:
+
+| Componente | Desenvolvimento ([seção 3](#3-como-rodar-localmente-modo-desenvolvimento)) | Docker ([seções 4](#4-como-rodar-com-docker-compose) e [5](#5-como-rodar-a-partir-da-imagem-publicada)) |
+|---|---|---|
+| Frontend | `localhost:5173` — Vite (`npm run dev`) | `localhost:8080` — Nginx servindo o build estático |
+| API | `localhost:3333` — `npm run dev` | `localhost:3333` — container `backend` |
+| PostgreSQL | container `db`, publicado em `localhost:5433` | `db:5432` na rede interna; publicado em `localhost:5433` só no `docker-compose.yml` |
+| API → banco | `localhost:5433` (`backend/.env`) | `db:5432` (`DATABASE_URL` do Compose) |
+
+No Docker, o navegador baixa o SPA do Nginx e chama a API direto em `localhost:3333`
+(endereço fixado no build do frontend por `VITE_API_URL`); só a API fala com o banco,
+pelo nome do serviço na rede interna. As portas publicadas ficam presas a `127.0.0.1`.
+
+```
+                     ┌────────────────── rede interna do Compose ───────────────────┐
+┌───────────┐ :8080  │   ┌──────────────────┐                                       │
+│ Navegador │ ─────────▶ │ frontend         │  entrega o SPA (build estático)       │
+│           │        │   │ Nginx :8080      │                                       │
+│           │        │   └──────────────────┘                                       │
+│           │ :3333  │   ┌──────────────────┐   db:5432   ┌──────────────────┐      │
+│           │ ─────────▶ │ backend          │ ──────────▶ │ db (PostgreSQL)  │      │
+└───────────┘        │   │ Express :3333    │   Prisma    │ :5432            │      │
+                     │   └──────────────────┘             └──────────────────┘      │
+                     └────────────────────────────────────────────▲─────────────────┘
+                                                                  │
+                         localhost:5433 — só no docker-compose.yml (desenvolvimento)
 ```
 
 - **Frontend** — SPA que autentica por PIN (`/auth`) e consome a API com token JWT.
@@ -368,23 +396,33 @@ um modelo `.example` versionado, com valores que funcionam localmente (nunca seg
 | `VITE_PLUGGY_CONNECTOR_IDS` | Conectores exibidos no widget Pluggy, separados por vírgula (vazio = todos) | `200` |
 | `VITE_INTERNAL_PARTY_PATTERN` | Regex que identifica transferências internas do casal (não contam como entrada/saída) | `fulano\|ciclana` |
 
-**Docker Compose** (`.env` de desenvolvimento e `.env` de produção)
+**Docker Compose** (`.env` na raiz, opcional)
 
-Todas têm valor padrão de exemplo no próprio Compose — o `.env` é opcional, só para
-sobrescrever algum valor.
+Todas têm valor padrão no próprio Compose (`${VAR:-padrão}`) — o `.env` serve só para
+sobrescrever algum valor. Modelos: `.env.example` (desenvolvimento) e `.env.prod.example`
+(entrega). Os padrões são **apenas para avaliação local**, não são segredos reais — troque
+senhas e `JWT_SECRET` em qualquer ambiente exposto. Colunas: **dev** = `docker-compose.yml`,
+**prod** = `docker-compose.prod.yml`.
 
-| Variável | Para que serve | Valor de exemplo |
-|---|---|---|
-| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | Usuário, senha e nome do banco criados no primeiro `up` | `admin` / `adminpassword` / `findb` |
-| `DATABASE_URL` | Conexão da API com o banco — usa o serviço `db` e a porta **interna** 5432; as credenciais devem bater com as acima | `postgresql://admin:adminpassword@db:5432/findb` |
-| `JWT_SECRET` | Segredo dos tokens de login | `local-development-only-change-me` |
-| `PLUGGY_MOCK` | `1` usa o stub da Pluggy e carrega dados de exemplo em banco vazio | `1` |
-| `API_PORT` / `FRONTEND_PORT` | Portas publicadas no host (`127.0.0.1`) | `3333` / `8080` |
-| `DB_PORT` | Porta do banco no host — só no compose de desenvolvimento | `5433` |
-| `CORS_ORIGIN` | Origens liberadas no CORS da API | `http://localhost:8080,http://127.0.0.1:8080` |
-| `VITE_API_URL` | URL da API fixada no build do frontend — só no compose de desenvolvimento | `http://localhost:3333` |
-| `DOCKERHUB_NAMESPACE` | Conta do Docker Hub de onde vêm as imagens — só em produção | `coyinc` |
-| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.3`) — só em produção | `latest` |
+| Variável | Para que serve | Valor padrão | dev | prod |
+|---|---|---|:-:|:-:|
+| `POSTGRES_USER` | Usuário do banco criado no primeiro `up` | `admin` | ✓ | ✓ |
+| `POSTGRES_PASSWORD` | Senha desse usuário | `adminpassword` | ✓ | ✓ |
+| `POSTGRES_DB` | Nome do banco | `findb` | ✓ | ✓ |
+| `DATABASE_URL` | Conexão da API com o banco — serviço `db` e porta **interna** 5432; as credenciais devem bater com as acima | `postgresql://admin:adminpassword@db:5432/findb` | ✓ | ✓ |
+| `JWT_SECRET` | Segredo dos tokens de login | `local-development-only-change-me` | ✓ | ✓ |
+| `PLUGGY_MOCK` | `1` usa o stub da Pluggy e carrega dados de exemplo em banco vazio | `1` | ✓ | ✓ |
+| `CORS_ORIGIN` | Origens liberadas no CORS da API, separadas por vírgula | dev: `http://localhost:8080,http://127.0.0.1:8080,http://localhost:5173`<br>prod: `http://localhost:8080,http://127.0.0.1:8080` | ✓ | ✓ |
+| `API_PORT` | Porta da API publicada no host (`127.0.0.1`) | `3333` | ✓ | ✓ |
+| `FRONTEND_PORT` | Porta do frontend (Nginx) publicada no host | `8080` | ✓ | ✓ |
+| `DB_PORT` | Porta do PostgreSQL publicada no host | `5433` | ✓ | — |
+| `VITE_API_URL` | *Build arg* do frontend: URL da API incorporada ao bundle (mudou a porta da API? ajuste e rode com `--build`) | `http://localhost:3333` | ✓ | — |
+| `DOCKERHUB_NAMESPACE` | Conta do Docker Hub de onde vêm as imagens | `coyinc` | — | ✓ |
+| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.3`) | `latest` | — | ✓ |
+
+Dentro dos containers a API sempre escuta em `PORT=3333` (fixo no Compose); `API_PORT`
+muda só a porta do host. Na imagem publicada, `VITE_API_URL` já foi fixado no build do CI
+como `http://localhost:3333` — por isso mantenha `API_PORT=3333` no compose de entrega.
 
 ---
 
