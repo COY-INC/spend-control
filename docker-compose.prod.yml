@@ -1,31 +1,30 @@
-# Entrega local usando somente imagens publicadas; não requer código-fonte.
 name: spend-control-prod
 services:
   db:
     image: postgres:15-alpine
     environment:
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: adminpassword
-      POSTGRES_DB: findb
+      POSTGRES_USER: ${POSTGRES_USER:?Defina POSTGRES_USER no ambiente ou .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no ambiente ou .env}
+      POSTGRES_DB: ${POSTGRES_DB:?Defina POSTGRES_DB no ambiente ou .env}
     volumes:
     - db-data:/var/lib/postgresql/data
     healthcheck:
       test:
       - CMD-SHELL
-      - pg_isready -U admin -d findb
+      - pg_isready -U "$${POSTGRES_USER}" -d "$${POSTGRES_DB}"
       interval: 5s
       timeout: 5s
       retries: 10
   backend:
-    image: ${DOCKERHUB_NAMESPACE:-coyinc}/spend-control-backend:${IMAGE_TAG:-latest}
+    image: ${DOCKERHUB_NAMESPACE:?Defina DOCKERHUB_NAMESPACE}/spend-control-backend:${IMAGE_TAG:?Defina IMAGE_TAG}
     ports:
-    - 127.0.0.1:3333:3333
+    - 127.0.0.1:${API_PORT:?Defina API_PORT}:3333
     environment:
-      DATABASE_URL: postgresql://admin:adminpassword@db:5432/findb
+      DATABASE_URL: ${DATABASE_URL:?Defina DATABASE_URL no ambiente ou .env}
+      CORS_ORIGIN: ${CORS_ORIGIN:?Defina CORS_ORIGIN no ambiente ou .env}
+      JWT_SECRET: ${JWT_SECRET:?Defina JWT_SECRET no ambiente ou .env}
+      PLUGGY_MOCK: ${PLUGGY_MOCK:?Defina PLUGGY_MOCK no ambiente ou .env}
       PORT: '3333'
-      CORS_ORIGIN: http://localhost:${FRONTEND_PORT:-8080},http://127.0.0.1:${FRONTEND_PORT:-8080}
-      JWT_SECRET: ${JWT_SECRET:-local-development-only-change-me}
-      PLUGGY_MOCK: '1'
     depends_on:
       db:
         condition: service_healthy
@@ -34,16 +33,15 @@ services:
       - CMD
       - node
       - -e
-      - 'fetch(''http://127.0.0.1:3333/health'').then(r => process.exit(r.ok ? 0 :
-        1)).catch(() => process.exit(1))'
+      - 'fetch(''http://127.0.0.1:3333/health'').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))'
       interval: 10s
       timeout: 5s
       start_period: 30s
       retries: 5
   frontend:
-    image: ${DOCKERHUB_NAMESPACE:-coyinc}/spend-control-frontend:${IMAGE_TAG:-latest}
+    image: ${DOCKERHUB_NAMESPACE:?Defina DOCKERHUB_NAMESPACE}/spend-control-frontend:${IMAGE_TAG:?Defina IMAGE_TAG}
     ports:
-    - 127.0.0.1:${FRONTEND_PORT:-8080}:8080
+    - 127.0.0.1:${FRONTEND_PORT:?Defina FRONTEND_PORT}:8080
     depends_on:
       backend:
         condition: service_healthy

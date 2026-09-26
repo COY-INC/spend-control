@@ -92,7 +92,7 @@ O `frontend/.env` pode ficar vazio — os valores padrão apontam para a API loc
 
 ```bash
 # 3. Banco (opcional, se não tiver Postgres nativo) — sobe na porta 5433
-docker compose -f infra/docker-compose.yml up -d
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d
 
 # 4. Tabelas + dados de exemplo (primeira vez ou após mudar o schema)
 cd backend && npm run db:setup
@@ -122,25 +122,29 @@ O modo Pluggy mock está habilitado, sem exigir credenciais externas.
 ```bash
 git clone https://github.com/COY-INC/spend-control.git
 cd spend-control
-docker compose -f infra/docker-compose.yml up -d --build --wait
+cp infra/.env.example infra/.env
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build --wait
 ```
 
 - **Frontend** → http://localhost:8080
 - **API / saúde** → http://localhost:3333/health
 - **Banco para ferramentas locais** → `localhost:5433` (usuário `admin`, senha `adminpassword`, banco `findb`)
 
-Os valores padrão são exclusivos para desenvolvimento local. Não é necessário criar
-`.env`. Para personalizar portas e JWT, copie `infra/.env.example` para `infra/.env`
-e repita o comando com `--build`. A URL da API é incorporada ao build do frontend;
+As configurações vêm do ambiente ou do arquivo informado por `--env-file`.
+Copie `infra/.env.example` para `infra/.env` e ajuste os valores. Variáveis obrigatórias
+ausentes interrompem o Compose com uma mensagem. Variáveis exportadas no terminal
+têm prioridade sobre o arquivo. O `backend/.env` não é carregado por este Compose.
+Ao alterar a porta externa da API ou do frontend, ajuste também `VITE_API_URL` e
+`CORS_ORIGIN`, conforme necessário, e repita o comando com `--build`. A URL da API é incorporada ao build do frontend;
 a API usa `db:5432` na rede interna, enquanto o navegador usa `localhost`.
 
 Para verificar os serviços e os logs:
 
 ```bash
-docker compose -f infra/docker-compose.yml ps
+docker compose --env-file infra/.env -f infra/docker-compose.yml ps
 curl --fail http://localhost:3333/health
 curl --fail http://localhost:8080/
-docker compose -f infra/docker-compose.yml logs --tail=100
+docker compose --env-file infra/.env -f infra/docker-compose.yml logs --tail=100
 ```
 
 Em modo mock, o backend carrega dados de exemplo automaticamente após as migrations
@@ -150,10 +154,10 @@ Login de exemplo: **Marido / PIN 1234** ou **Esposa / PIN 5678**.
 Para recriar os exemplos manualmente (**apaga os dados atuais**):
 
 ```bash
-docker compose -f infra/docker-compose.yml exec backend npm run seed:mock:dist
+docker compose --env-file infra/.env -f infra/docker-compose.yml exec backend npm run seed:mock:dist
 ```
 
-Para encerrar, use `docker compose -f infra/docker-compose.yml down`. O volume
+Para encerrar, use `docker compose --env-file infra/.env -f infra/docker-compose.yml down`. O volume
 `db-data` preserva os dados; adicionar `-v` apaga o banco. Se uma porta estiver ocupada,
 altere a respectiva variável em `infra/.env`. Se houver erro de permissão no socket
 Docker em Linux, execute os comandos com `sudo` no seu terminal.
@@ -172,29 +176,32 @@ Em uma pasta vazia, coloque apenas `docker-compose.prod.yml` e uma cópia de
 ```bash
 docker pull coyinc/spend-control-backend:latest
 docker pull coyinc/spend-control-frontend:latest
-docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
+docker compose --env-file .env -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
 ```
 
 A API publica `http://localhost:3333` e o frontend `http://localhost:8080`.
-A porta da API é fixa porque esse endereço está incorporado à imagem do frontend.
+Mantenha `API_PORT=3333` para a imagem publicada: esse endereço está incorporado ao frontend.
 Libere essas portas antes de iniciar (encerre a stack de desenvolvimento, se necessário).
 As migrations e o seed mock rodam automaticamente em um banco novo.
 Entre com **Marido / PIN 1234** ou **Esposa / PIN 5678** e confira os dados no painel.
 O healthcheck confirma disponibilidade; o login no navegador valida a integração.
 
 ```bash
-docker compose -f docker-compose.prod.yml ps
+docker compose --env-file .env -f docker-compose.prod.yml ps
 curl --fail http://localhost:3333/health
 curl --fail http://localhost:3333/auth/users
-docker compose -f docker-compose.prod.yml logs --tail=100
+docker compose --env-file .env -f docker-compose.prod.yml logs --tail=100
 ```
 
 Para usar uma versão rastreável, defina `IMAGE_TAG` no `.env` com o SHA publicado,
-execute `docker compose -f docker-compose.prod.yml pull` e repita o `up`.
+execute `docker compose --env-file .env -f docker-compose.prod.yml pull` e repita o `up`.
 `DOCKERHUB_NAMESPACE` permite selecionar a conta que publicou as imagens;
-`FRONTEND_PORT` e `JWT_SECRET` também podem ser definidos no `.env`.
+`POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `JWT_SECRET`,
+`PLUGGY_MOCK`, `API_PORT`, `FRONTEND_PORT` e `CORS_ORIGIN` vêm do `.env`.
+Mantenha as credenciais de `DATABASE_URL` consistentes com as do PostgreSQL.
+Alterar essas credenciais no arquivo não altera usuários de um volume já inicializado.
 
-Encerre com `docker compose -f docker-compose.prod.yml down`. Os dados persistem
+Encerre com `docker compose --env-file .env -f docker-compose.prod.yml down`. Os dados persistem
 no volume do projeto `spend-control-prod`; `down -v` apaga esses dados.
 
 **Aceite e evidências:** siga [o checklist de entrega](docs/entrega-containers.md).
