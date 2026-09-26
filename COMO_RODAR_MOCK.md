@@ -1,4 +1,4 @@
-# Como rodar o fin-dash localmente com dados mock
+# Como rodar o spend-control localmente com dados mock
 
 Réplica do projeto montada para desenvolvimento local **sem Pluggy e sem Docker**: banco no
 Postgres nativo da máquina e um seed determinístico que popula todas as seções do dashboard.
