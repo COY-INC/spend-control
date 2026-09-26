@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useDashboard } from "@/dashboard/DashboardContext";
 import { MonthYearPicker } from "@/components/MonthYearPicker";
 import { CategoryManagerModal } from "@/components/CategoryManagerModal";
+import { NewTransactionModal } from "@/components/NewTransactionModal";
 import { api } from "@/api";
 import { exportWorkbook } from "@/lib/export";
 
@@ -20,10 +21,12 @@ export function GlobalHeader() {
     accounts,
     investments,
     transactions,
+    reload,
   } = useDashboard();
   const sel = "min-h-10 rounded-md border border-border/50 bg-card px-3 py-1.5 text-sm";
   const [exporting, setExporting] = useState(false);
   const [managingCategories, setManagingCategories] = useState(false);
+  const [addingTransaction, setAddingTransaction] = useState(false);
 
   async function onExport() {
     setExporting(true);
@@ -109,8 +112,15 @@ export function GlobalHeader() {
       </select>
 
       <button
-        onClick={() => setManagingCategories(true)}
+        onClick={() => setAddingTransaction(true)}
         className="min-h-10 rounded-md border border-border/50 px-3 text-sm text-muted-foreground hover:bg-accent sm:ml-auto"
+      >
+        Nova transação
+      </button>
+
+      <button
+        onClick={() => setManagingCategories(true)}
+        className="min-h-10 rounded-md border border-border/50 px-3 text-sm text-muted-foreground hover:bg-accent"
       >
         Minhas categorias
       </button>
@@ -124,6 +134,9 @@ export function GlobalHeader() {
       </button>
 
       {managingCategories && <CategoryManagerModal onClose={() => setManagingCategories(false)} />}
+      {addingTransaction && (
+        <NewTransactionModal onClose={() => setAddingTransaction(false)} onCreated={reload} />
+      )}
     </div>
   );
 }
