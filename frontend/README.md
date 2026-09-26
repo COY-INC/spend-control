@@ -1,32 +1,62 @@
-# React + TypeScript + Vite
+# Frontend — Spend Control
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interface React + TypeScript + Vite. O Dockerfile compila a aplicação com Node e entrega apenas os arquivos de `dist` em uma imagem Nginx Alpine. O Nginx executa como usuário `nginx`, na porta 8080, com suporte às rotas da SPA e healthcheck HTTP.
 
-Currently, two official plugins are available:
+## Desenvolvimento local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Na pasta `frontend`, execute `npm ci` e `npm run dev`. Use `.env.example` como referência para seu `.env` local. Para compilar, execute `npm run build`; para os testes, `npm test -- --runInBand`.
 
-## React Compiler
+## Build e execução com Docker
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Execute os comandos abaixo na raiz do repositório, com Docker instalado e em execução:
 
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+docker build -t spend-control-frontend:local ./frontend
+docker run -d --name spend-control-frontend -p 127.0.0.1:8080:8080 spend-control-frontend:local
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Abra http://localhost:8080. Este container serve apenas o frontend; para usar dados e autenticação, inicie também a API conforme o README da raiz. Por padrão, o navegador acessa a API em http://localhost:3333.
+
+## Verificação local
+
+```bash
+docker exec spend-control-frontend nginx -t
+docker exec spend-control-frontend id
+docker inspect --format '{{.State.Health.Status}}' spend-control-frontend
+curl --fail http://localhost:8080/
+curl --fail http://localhost:8080/rota-de-teste
+docker logs spend-control-frontend
+```
+
+O teste de configuração deve passar, `id` deve mostrar usuário diferente de root e o healthcheck deve chegar a `healthy` (aguarde cerca de 30 segundos). As duas URLs devem retornar o HTML da aplicação: a segunda verifica o fallback das rotas SPA. Isso verifica o servidor estático; não confirma a integração com a API.
+
+Para parar e remover o container de teste:
+
+```bash
+docker stop spend-control-frontend
+docker rm spend-control-frontend
+```
+
+## Variáveis do build
+
+As variáveis `VITE_*` são incorporadas ao JavaScript durante a compilação e ficam acessíveis ao navegador. Nunca coloque senhas ou tokens nelas. Alterá-las com `docker run -e` não modifica o frontend já compilado; gere outra imagem usando `--build-arg`:
+
+```bash
+docker build -t spend-control-frontend:local --build-arg VITE_API_URL=http://localhost:3333 ./frontend
+```
+
+| Argumento | Finalidade | Padrão |
+| --- | --- | --- |
+| `VITE_API_URL` | Endereço da API acessível pelo navegador | `http://localhost:3333` |
+| `VITE_PLUGGY_CONNECTOR_IDS` | IDs dos conectores separados por vírgula | vazio |
+| `VITE_INTERNAL_PARTY_PATTERN` | Regex para identificar transferências internas | vazio |
+
+## Problemas comuns
+
+- **Permissão negada em `/var/run/docker.sock`:** em Linux, execute os comandos Docker com `sudo` no seu terminal, se sua conta tiver essa permissão.
+- **Porta 8080 ocupada:** use `-p 127.0.0.1:8081:8080` e acesse http://localhost:8081.
+- **Interface abre, mas a API falha:** confirme que a API está rodando e que `VITE_API_URL` aponta para um endereço acessível pelo navegador. Confira também a configuração de CORS da API.
+
+## Uso de IA
+
+Foi solicitada revisão do Dockerfile com base no guia da disciplina. Foram aplicados usuário não-root, correção do contexto da diretiva `pid`, remoção de permissões globais de escrita e documentação do teste local. A execução do container ainda precisa ser validada em um ambiente com acesso ao Docker.
