@@ -93,12 +93,12 @@ cd backend && npm run seed:mock
 
 ## Usar o Postgres do Docker (opcional)
 
-Para usar o banco do `infra/docker-compose.yml` em vez do Postgres nativo, suba só o
-serviço `db` e volte a `DATABASE_URL` do `backend/.env` para o valor do exemplo
+Para usar o banco do `docker-compose.yml` da raiz em vez do Postgres nativo, suba só o
+serviço `db` (o Compose já tem valores padrão, não precisa de `.env`) e volte a
+`DATABASE_URL` do `backend/.env` para o valor do exemplo
 (`postgresql://admin:adminpassword@localhost:5433/findb`):
 
 ```bash
-cp infra/.env.example infra/.env
-docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --wait db
+docker compose up -d --wait db
 (cd backend && npm run db:setup:mock)
 ```
