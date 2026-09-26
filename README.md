@@ -73,7 +73,8 @@ roda em Docker. Para subir tudo em containers, veja a [seção 4](#4-como-rodar-
 
 **Pré-requisitos**
 - **Node.js 22** — o CI usa a `22.18.0` (arquivo `.nvmrc`). Com nvm:
-  `nvm use` (Linux/macOS) ou `nvm install 22.18.0 && nvm use 22.18.0` (Windows, nvm-windows)
+  `nvm install` (Linux/macOS — lê o `.nvmrc`, instala se faltar e ativa) ou
+  `nvm install 22.18.0 && nvm use 22.18.0` (Windows, nvm-windows)
 - **Docker Desktop aberto** (para o PostgreSQL)
 - No Windows, use o **Git Bash** — os comandos abaixo são de terminal bash
 
