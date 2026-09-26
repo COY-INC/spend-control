@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "./transaction.repository";
 import { annotationKey, findNote, keyMatches, sameGroup } from "./notes";
 import { anticipationKey, applyAnticipations } from "./anticipation";
+import { parseManualTransaction } from "./manualTransaction";
 
 // Leitura e edição de transações.
 export const transactionsRouter = Router();
@@ -43,6 +44,31 @@ transactionsRouter.get("/transactions", async (req, res) => {
       anticipated: flags.has(anticipationKey(t) ?? ""),
     })),
   );
+});
+
+// Lançamento avulso (dinheiro em espécie, Pix fora da conta sincronizada, gasto que a Pluggy
+// não capturou): cria uma linha manual, sem depender de installments[] nem exigir conta CREDIT
+// (isso é POST /commitments/manual, que é só para parcelamento futuro de cartão).
+transactionsRouter.post("/transactions", async (req, res) => {
+  const parsed = parseManualTransaction(req.body);
+  if ("error" in parsed) return res.status(400).json({ error: parsed.error });
+  const { accountId, amount, date, description, category, userCategories } = parsed.data;
+
+  const account = await prisma.account.findUnique({ where: { id: accountId }, select: { id: true } });
+  if (!account) return res.status(404).json({ error: "Conta não encontrada." });
+
+  const tx = await prisma.transaction.create({
+    data: { accountId, amount, date, description, category, userCategories, manual: true },
+  });
+  res.status(201).json(tx);
+});
+
+// Apagar uma transação manual (lançamento avulso). Só linhas manual: true — nunca toca dado
+// sincronizado da Pluggy por engano (mesmo cuidado do DELETE /commitments/manual/:id).
+transactionsRouter.delete("/transactions/:id", async (req, res) => {
+  const r = await prisma.transaction.deleteMany({ where: { id: req.params.id, manual: true } });
+  if (r.count === 0) return res.status(404).json({ error: "Transação manual não encontrada." });
+  res.json({ deleted: r.count });
 });
 
 // Edita uma transação — userCategories (categorias do usuário) e/ou description.
