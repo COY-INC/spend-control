@@ -176,10 +176,13 @@ jobs:
           docker tag spend-control-backend:local "$BACKEND_IMAGE"
           docker tag spend-control-frontend:local "$FRONTEND_IMAGE"
 
+      # Só o CD (push na main) consome o artefato; nas demais branches/PRs não gasta storage.
       - name: Save images
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: docker save --output images.tar "$BACKEND_IMAGE" "$FRONTEND_IMAGE"
 
       - name: Upload images artifact
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: actions/upload-artifact@v4
         with:
           name: images-${{ github.sha }}

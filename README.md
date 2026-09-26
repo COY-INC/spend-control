@@ -162,12 +162,17 @@ Docker em Linux, execute os comandos com `sudo` no seu terminal.
 
 ## 5. Como rodar a partir da imagem publicada
 
-> 🚧 **Em construção** — será preenchida na issue de publicação no Docker Hub.
+O CD publica duas imagens no Docker Hub, cada uma com a tag do SHA do commit e `latest`:
 
 ```bash
-docker pull <usuario-dockerhub>/spend-control:latest
-docker compose -f docker-compose.prod.yml up
+docker pull coyinc/spend-control-backend:latest
+docker pull coyinc/spend-control-frontend:latest
 ```
+
+> 🚧 **Em construção** — o `docker-compose.prod.yml` que sobe a stack a partir dessas
+> imagens será adicionado na issue #29. A imagem do frontend chama a API em
+> `http://localhost:3333` (valor fixado no build), então a API precisa estar publicada
+> nessa porta do host.
 
 ---
 
@@ -205,7 +210,7 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
    stack com `docker compose up --wait` (espera todos os containers ficarem `healthy`), confere
    `GET /health` da API e a página do frontend, marca as imagens `spend-control-backend` e
    `spend-control-frontend` com a tag do SHA do commit e salva essas imagens validadas como
-   artefato (`docker save`)
+   artefato (`docker save`) — este último passo só em push na `main`, onde o CD o consome
 4. Em caso de falha, o resumo do job mostra qual etapa quebrou e a causa provável
 
 **CD** — só roda depois que **todos** os jobs de CI passam, e só em push na `main`
