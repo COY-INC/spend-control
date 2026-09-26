@@ -54,7 +54,7 @@ Commits pequenos e coesos são preferíveis a um commit gigante no fim da branch
 
 ## 7. Gaps conhecidos (para revisitar)
 
-- A branch protection da `main` tem `required_status_checks.contexts` vazio — ou seja, hoje o GitHub **não bloqueia** o merge se a pipeline de CI falhar (mesmo a pipeline rodando e reportando status). Para que a regra da seção 4 seja *imposta* pelo GitHub (e não apenas seguida por convenção), é preciso adicionar os contexts `Install, Test & Build (frontend)` e `Install, Test & Build (backend)` como *required status checks* na branch protection de `main`.
+- A branch protection da `main` já exige os checks `Build (frontend)`, `Build (backend)`, `Test (frontend)` e `Test (backend)` (com `strict: true`), então o GitHub bloqueia o merge se eles falharem. O job `Docker (build & validate)` do `ci-cd.yml` ainda **não** é obrigatório: depois que o pipeline Docker estiver estável na `main`, adicioná-lo aos *required status checks*. Se algum job do CI for renomeado, a lista de checks obrigatórios precisa ser atualizada junto.
 - `Automatically delete head branches` está desativado nas configurações do repositório. Ativar essa opção automatiza a limpeza descrita na seção 5, sem depender de lembrar manualmente.
 
-Essas duas mudanças são configurações do repositório no GitHub (não arquivos versionados) e devem ser aplicadas deliberadamente por quem administra o repositório.
+Esses ajustes são configurações do repositório no GitHub (não arquivos versionados) e devem ser aplicados deliberadamente por quem administra o repositório.
