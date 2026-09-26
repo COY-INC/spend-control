@@ -8,3 +8,4 @@ npm-debug.log
 **/*.test.ts
 Dockerfile
 .dockerignore
+dist-seed

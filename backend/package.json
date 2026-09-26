@@ -6,6 +6,7 @@
     "dev": "tsx watch src/index.ts",
     "test": "tsx --test \"src/**/*.test.ts\"",
     "build": "tsc",
+    "build:seed": "tsc -p tsconfig.seed.json",
     "start": "node dist/index.js",
     "vercel-build": "prisma generate && prisma migrate deploy",
     "db:migrate": "prisma migrate dev",
@@ -14,6 +15,7 @@
     "dedup": "tsx prisma/dedup-transactions.ts",
     "webhook:mock": "tsx scripts/webhook-mock.ts",
     "seed:mock": "tsx prisma/seed-mock.ts",
+    "seed:mock:dist": "node dist-seed/prisma/seed-mock.js",
     "db:setup:mock": "prisma migrate deploy && tsx prisma/seed-mock.ts"
   },
   "dependencies": {
