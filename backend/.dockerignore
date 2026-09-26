@@ -3,3 +3,8 @@ dist
 .env
 .env.*
 npm-debug.log
+.git
+.gitignore
+**/*.test.ts
+Dockerfile
+.dockerignore
