@@ -56,6 +56,7 @@ spend-control/
 - **Frontend** — SPA que autentica por PIN (`/auth`) e consome a API com token JWT.
 - **API** — rotas por domínio (`/accounts`, `/cards`, `/transactions`, `/budgets`,
   `/investments`, ...); recebe webhooks da Pluggy e roda um sync automático periódico.
+  Expõe `GET /health` (pública, sem JWT) checando a conexão com o banco.
 - **PostgreSQL** — persistência; schema e migrations gerenciados pelo Prisma.
 - **Pluggy** — agregador Open Finance que fornece contas e transações dos bancos.
 
@@ -147,9 +148,14 @@ docker compose -f docker-compose.prod.yml up
 cd frontend && npm test
 ```
 
-**Backend:**
+**Backend** (test runner nativo do Node via `tsx --test`):
 
-> 🚧 **Em construção** — o backend ainda não possui script `npm test`.
+```bash
+cd backend && npm test
+```
+
+Roda todos os arquivos `*.test.ts` em `src/`. Um teste quebrado faz o comando sair com
+código ≠ 0.
 
 ---
 
