@@ -14,8 +14,8 @@ concurrency:
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
-  API_IMAGE: spend-control-api:${{ github.sha }}
-  WEB_IMAGE: spend-control-web:${{ github.sha }}
+  BACKEND_IMAGE: spend-control-backend:${{ github.sha }}
+  FRONTEND_IMAGE: spend-control-frontend:${{ github.sha }}
 
 jobs:
   build:
@@ -145,7 +145,7 @@ jobs:
       - name: Prepare .env
         run: cp .env.example .env
 
-      # Compose builda as imagens com as tags $API_IMAGE/$WEB_IMAGE (sha do commit),
+      # Compose builda as imagens com as tags $BACKEND_IMAGE/$FRONTEND_IMAGE (sha do commit),
       # usando os mesmos build args que o docker-compose.yml usa localmente.
       - name: Build images
         id: build
@@ -168,7 +168,7 @@ jobs:
         run: docker compose down -v
 
       - name: Save images
-        run: docker save --output images.tar "$API_IMAGE" "$WEB_IMAGE"
+        run: docker save --output images.tar "$BACKEND_IMAGE" "$FRONTEND_IMAGE"
 
       - name: Upload images artifact
         uses: actions/upload-artifact@v4
@@ -218,7 +218,7 @@ jobs:
         env:
           REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
         run: |
-          for image in "$API_IMAGE" "$WEB_IMAGE"; do
+          for image in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
             repo="$REGISTRY_USER/${image%%:*}"
             docker tag "$image" "$repo:${{ github.sha }}"
             docker tag "$image" "$repo:latest"
