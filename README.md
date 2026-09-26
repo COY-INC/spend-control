@@ -162,17 +162,56 @@ Docker em Linux, execute os comandos com `sudo` no seu terminal.
 
 ## 5. Como rodar a partir da imagem publicada
 
-O CD publica duas imagens no Docker Hub, cada uma com a tag do SHA do commit e `latest`:
+O arquivo `docker-compose.prod.yml`, na raiz, usa somente imagens publicadas,
+sem `build`, bind mounts ou dependência do código-fonte. O PostgreSQL fica na rede
+interna, com volume persistente. Este fluxo é para avaliação local em modo mock.
+
+Em uma pasta vazia, coloque apenas `docker-compose.prod.yml` e uma cópia de
+`.env.prod.example` renomeada para `.env`. Com Docker e Compose instalados:
 
 ```bash
 docker pull coyinc/spend-control-backend:latest
 docker pull coyinc/spend-control-frontend:latest
+docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
 ```
 
-> 🚧 **Em construção** — o `docker-compose.prod.yml` que sobe a stack a partir dessas
-> imagens será adicionado na issue #29. A imagem do frontend chama a API em
-> `http://localhost:3333` (valor fixado no build), então a API precisa estar publicada
-> nessa porta do host.
+A API publica `http://localhost:3333` e o frontend `http://localhost:8080`.
+A porta da API é fixa porque esse endereço está incorporado à imagem do frontend.
+Libere essas portas antes de iniciar (encerre a stack de desenvolvimento, se necessário).
+As migrations e o seed mock rodam automaticamente em um banco novo.
+Entre com **Marido / PIN 1234** ou **Esposa / PIN 5678** e confira os dados no painel.
+O healthcheck confirma disponibilidade; o login no navegador valida a integração.
+
+```bash
+docker compose -f docker-compose.prod.yml ps
+curl --fail http://localhost:3333/health
+curl --fail http://localhost:3333/auth/users
+docker compose -f docker-compose.prod.yml logs --tail=100
+```
+
+Para usar uma versão rastreável, defina `IMAGE_TAG` no `.env` com o SHA publicado,
+execute `docker compose -f docker-compose.prod.yml pull` e repita o `up`.
+`DOCKERHUB_NAMESPACE` permite selecionar a conta que publicou as imagens;
+`FRONTEND_PORT` e `JWT_SECRET` também podem ser definidos no `.env`.
+
+Encerre com `docker compose -f docker-compose.prod.yml down`. Os dados persistem
+no volume do projeto `spend-control-prod`; `down -v` apaga esses dados.
+
+**Aceite e evidências:** siga [o checklist de entrega](docs/entrega-containers.md).
+A publicação pública e o teste em outra máquina precisam ser comprovados antes de fechar a issue.
+
+**Alternativa com artifact:** o workflow disponibiliza `images-<SHA>` por 7 dias
+nas execuções de push na `main` que geraram o artifact. Baixe e extraia `images.tar`,
+execute `docker load --input images.tar` e marque as imagens carregadas:
+
+```bash
+# Substitua SHA pelo commit da execução baixada.
+docker tag spend-control-backend:SHA coyinc/spend-control-backend:SHA
+docker tag spend-control-frontend:SHA coyinc/spend-control-frontend:SHA
+```
+
+Defina `IMAGE_TAG=SHA` no `.env` e use o mesmo Compose. A imagem PostgreSQL também
+precisa estar disponível. Esse caminho complementa a publicação pública no Docker Hub.
 
 ---
 
