@@ -115,29 +115,47 @@ reinicie o backend.
 
 ## 4. Como rodar com Docker Compose
 
-Sobe **banco (Postgres) + API (backend)** com um único comando — a imagem do backend é
-construída a partir do `backend/Dockerfile`.
+Sobe **frontend + API + PostgreSQL**, com migrations automáticas e healthchecks.
+O modo Pluggy mock está habilitado, sem exigir credenciais externas.
 
 ```bash
 git clone https://github.com/COY-INC/spend-control.git
 cd spend-control
-docker compose -f infra/docker-compose.yml up -d --build
+docker compose -f infra/docker-compose.yml up -d --build --wait
 ```
 
-- **API** → http://localhost:3333
-- **Banco** → `localhost:5433` (usuário `admin`, senha `adminpassword`, banco `findb`)
+- **Frontend** → http://localhost:8080
+- **API / saúde** → http://localhost:3333/health
+- **Banco para ferramentas locais** → `localhost:5433` (usuário `admin`, senha `adminpassword`, banco `findb`)
 
-As variáveis de ambiente do backend (`DATABASE_URL`, `JWT_SECRET`, `PLUGGY_MOCK`, etc.) já vêm
-definidas no `infra/docker-compose.yml` para desenvolvimento local — não precisa criar `.env`
-para esse fluxo. O container roda `prisma migrate deploy` automaticamente ao subir, mas não
-popula dados de exemplo; para o seed mock, rode dentro do container já em execução:
+Os valores padrão são exclusivos para desenvolvimento local. Não é necessário criar
+`.env`. Para personalizar portas e JWT, copie `infra/.env.example` para `infra/.env`
+e repita o comando com `--build`. A URL da API é incorporada ao build do frontend;
+a API usa `db:5432` na rede interna, enquanto o navegador usa `localhost`.
+
+Para verificar os serviços e os logs:
 
 ```bash
-docker compose -f infra/docker-compose.yml exec backend npx tsx prisma/seed-mock.ts
+docker compose -f infra/docker-compose.yml ps
+curl --fail http://localhost:3333/health
+curl --fail http://localhost:8080/
+docker compose -f infra/docker-compose.yml logs --tail=100
 ```
 
-> O frontend ainda roda fora do Compose (`cd frontend && npm run dev`) — não há Dockerfile de
-> frontend nem serviço dele neste `infra/docker-compose.yml` por enquanto.
+Em modo mock, o backend carrega dados de exemplo automaticamente após as migrations
+quando não há usuários no banco. Reinícios preservam os dados existentes.
+Login de exemplo: **Marido / PIN 1234** ou **Esposa / PIN 5678**.
+
+Para recriar os exemplos manualmente (**apaga os dados atuais**):
+
+```bash
+docker compose -f infra/docker-compose.yml exec backend npm run seed:mock
+```
+
+Para encerrar, use `docker compose -f infra/docker-compose.yml down`. O volume
+`db-data` preserva os dados; adicionar `-v` apaga o banco. Se uma porta estiver ocupada,
+altere a respectiva variável em `infra/.env`. Se houver erro de permissão no socket
+Docker em Linux, execute os comandos com `sudo` no seu terminal.
 
 ---
 
