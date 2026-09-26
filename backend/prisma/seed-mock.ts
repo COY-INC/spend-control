@@ -8,10 +8,12 @@
 // É DETERMINÍSTICO (PRNG com semente fixa): rodar de novo produz exatamente o mesmo banco.
 // As datas são relativas a "hoje", então o dashboard sempre abre com dados do mês corrente.
 
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { hashPin } from "../src/modules/auth/pin";
 import { annotationKey } from "../src/modules/transactions/notes";
 import { anticipationKey } from "../src/modules/transactions/anticipation";
+import { resetDatabase } from "./reset";
 
 const prisma = new PrismaClient();
 
@@ -474,19 +476,7 @@ async function seedUser(opts: {
 }
 
 async function main() {
-  // Limpa na ordem das dependências.
-  await prisma.transactionNote.deleteMany();
-  await prisma.anticipatedInstallment.deleteMany();
-  await prisma.dismissedSuggestion.deleteMany();
-  await prisma.transaction.deleteMany();
-  await prisma.creditCardBill.deleteMany();
-  await prisma.account.deleteMany();
-  await prisma.investment.deleteMany();
-  await prisma.item.deleteMany();
-  await prisma.user.deleteMany();
-  await prisma.budget.deleteMany();
-  await prisma.category.deleteMany();
-  await prisma.appState.deleteMany();
+  await resetDatabase(prisma);
 
   await seedUser({
     name: "Marido",

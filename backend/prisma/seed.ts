@@ -1,5 +1,7 @@
+import "dotenv/config";
 import { PrismaClient } from "@prisma/client";
 import { hashPin } from "../src/modules/auth/pin";
+import { resetDatabase } from "./reset";
 
 const prisma = new PrismaClient();
 
@@ -46,10 +48,7 @@ async function seedUser(
 }
 
 async function main() {
-  await prisma.transaction.deleteMany();
-  await prisma.account.deleteMany();
-  await prisma.item.deleteMany();
-  await prisma.user.deleteMany();
+  await resetDatabase(prisma);
 
   await seedUser("Marido", "Nubank", "pluggy-item-marido", "UPDATED", "1234");
   await seedUser("Esposa", "Itaú", "pluggy-item-esposa", "WAITING_USER_INPUT", "5678");
