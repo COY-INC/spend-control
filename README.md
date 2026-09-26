@@ -31,7 +31,7 @@ um **modo mock** (`PLUGGY_MOCK=1`) que dispensa credenciais e usa dados fictíci
 spend-control/
 ├── backend/     API REST (Express + Prisma)
 ├── frontend/    SPA React (Vite)
-├── infra/       docker-compose do PostgreSQL
+├── infra/       docker-compose
 └── .github/     workflows do GitHub Actions
 ```
 
@@ -115,16 +115,29 @@ reinicie o backend.
 
 ## 4. Como rodar com Docker Compose
 
-> 🚧 **Em construção** — será preenchida na issue do Docker Compose.
-
-Caminho principal de avaliação. Objetivo: subir banco, API e frontend com um único comando.
+Sobe **banco (Postgres) + API (backend)** com um único comando — a imagem do backend é
+construída a partir do `backend/Dockerfile`.
 
 ```bash
 git clone https://github.com/COY-INC/spend-control.git
 cd spend-control
-cp .env.example .env
-docker compose up --build
+docker compose -f infra/docker-compose.yml up -d --build
 ```
+
+- **API** → http://localhost:3333
+- **Banco** → `localhost:5433` (usuário `admin`, senha `adminpassword`, banco `findb`)
+
+As variáveis de ambiente do backend (`DATABASE_URL`, `JWT_SECRET`, `PLUGGY_MOCK`, etc.) já vêm
+definidas no `infra/docker-compose.yml` para desenvolvimento local — não precisa criar `.env`
+para esse fluxo. O container roda `prisma migrate deploy` automaticamente ao subir, mas não
+popula dados de exemplo; para o seed mock, rode dentro do container já em execução:
+
+```bash
+docker compose -f infra/docker-compose.yml exec backend npx tsx prisma/seed-mock.ts
+```
+
+> O frontend ainda roda fora do Compose (`cd frontend && npm run dev`) — não há Dockerfile de
+> frontend nem serviço dele neste `infra/docker-compose.yml` por enquanto.
 
 ---
 

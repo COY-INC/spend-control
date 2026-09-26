@@ -9,3 +9,29 @@ services:
     ports:
       # 5433 no host: Postgres 17 nativo do Windows ocupa a 5432
       - "5433:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d findb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    ports:
+      - "3333:3333"
+    environment:
+      DATABASE_URL: postgresql://admin:adminpassword@db:5432/findb
+      PORT: "3333"
+      CORS_ORIGIN: http://localhost:5173
+      JWT_SECRET: dev-secret
+      PLUGGY_MOCK: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  db-data:
