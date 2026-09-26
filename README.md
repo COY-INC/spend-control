@@ -201,10 +201,11 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
 1. **Build** (matriz `frontend`/`backend`): `npm ci`, `npx prisma generate` (backend),
    `npm run lint` (frontend) e `npm run build`
 2. **Test** (matriz, após o Build): `npm test`
-3. **Docker**: `docker compose build` gera as imagens `spend-control-backend` e
-   `spend-control-frontend` com a tag do SHA do commit, sobe a stack com
-   `docker compose up --wait` (espera todos os containers ficarem `healthy`), confere
-   `GET /health` da API e salva as imagens validadas como artefato (`docker save`)
+3. **Docker**: builda as imagens com o mesmo `infra/docker-compose.yml` do uso local, sobe a
+   stack com `docker compose up --wait` (espera todos os containers ficarem `healthy`), confere
+   `GET /health` da API e a página do frontend, marca as imagens `spend-control-backend` e
+   `spend-control-frontend` com a tag do SHA do commit e salva essas imagens validadas como
+   artefato (`docker save`)
 4. Em caso de falha, o resumo do job mostra qual etapa quebrou e a causa provável
 
 **CD** — só roda depois que **todos** os jobs de CI passam, e só em push na `main`

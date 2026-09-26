@@ -31,7 +31,7 @@ Commits pequenos e coesos são preferíveis a um commit gigante no fim da branch
 - O título do PR deve seguir o formato `ISSUE-<numero> - <titulo descritivo do PR>`, onde `<numero>` é o número da issue relacionada (ex.: `ISSUE-11 - Adiciona regra de título de PR ao CONTRIBUTING`).
 - Referencie a issue com `Closes #<numero>` na descrição — isso fecha a issue automaticamente quando o GitHub processa o merge, **além** da action `close-issue-on-merge.yml` (que fecha e comenta a issue com base no número extraído do nome da branch). As duas coisas são redundantes de propósito: se uma falhar, a outra garante o fechamento.
 - O PR só pode ser mergeado quando:
-  - A pipeline de CI (`ci.yaml`) passar tanto no job `frontend` quanto no job `backend` (install, testes, build).
+  - A pipeline de CI (`ci-cd.yml`) passar nos jobs `Build` e `Test` (frontend e backend) e no job `Docker (build & validate)`.
   - Houver **pelo menos 1 aprovação** de revisão.
 - Mantenha a branch atualizada com a `main` (merge ou rebase) antes de pedir review e antes do merge final, para evitar conflitos e reduzir o risco de a CI passar na branch mas falhar depois do merge.
 - Prefira PRs pequenos e focados em uma única issue — não misture funcionalidades não relacionadas no mesmo PR.

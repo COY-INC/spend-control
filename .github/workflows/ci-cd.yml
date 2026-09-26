@@ -137,27 +137,30 @@ jobs:
   docker:
     name: Docker (build & validate)
     runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: infra/docker-compose.yml
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
 
-      - name: Prepare .env
-        run: cp .env.example .env
-
-      # Compose builda as imagens com as tags $BACKEND_IMAGE/$FRONTEND_IMAGE (sha do commit),
-      # usando os mesmos build args que o docker-compose.yml usa localmente.
+      # Compose builda as imagens spend-control-{backend,frontend}:local com os mesmos
+      # build args do uso local; o .env é opcional (o compose tem valores padrão).
       - name: Build images
         id: build
         run: docker compose build
 
       - name: Start stack
         id: up
-        run: docker compose up -d --no-build --wait --wait-timeout 120
+        run: docker compose up -d --no-build --wait --wait-timeout 180
 
       - name: Check API /health
         id: health
         run: curl -fsS --retry 5 --retry-delay 3 --retry-all-errors http://localhost:3333/health
+
+      - name: Check frontend
+        id: frontend
+        run: curl -fsS -o /dev/null http://localhost:8080/
 
       - name: Show container logs
         if: failure() && steps.up.outcome != 'skipped'
@@ -166,6 +169,12 @@ jobs:
       - name: Stop stack
         if: always()
         run: docker compose down -v
+
+      # Mesma imagem validada acima, só com a tag rastreável do commit.
+      - name: Tag images with commit SHA
+        run: |
+          docker tag spend-control-backend:local "$BACKEND_IMAGE"
+          docker tag spend-control-frontend:local "$FRONTEND_IMAGE"
 
       - name: Save images
         run: docker save --output images.tar "$BACKEND_IMAGE" "$FRONTEND_IMAGE"
@@ -187,6 +196,9 @@ jobs:
           fi
           if [ "${{ steps.up.outcome }}" = "failure" ]; then
             echo "- **Start stack** falhou (\`docker compose up --wait\`). Algum container não ficou \`healthy\` — veja o passo **Show container logs**." >> "$GITHUB_STEP_SUMMARY"
+          fi
+          if [ "${{ steps.frontend.outcome }}" = "failure" ]; then
+            echo "- **Check frontend** falhou. O Nginx não respondeu 200 em \`http://localhost:8080/\` — veja o passo **Show container logs**." >> "$GITHUB_STEP_SUMMARY"
           fi
           if [ "${{ steps.health.outcome }}" = "failure" ]; then
             echo "- **Check API /health** falhou. A API subiu mas não respondeu 200 em \`/health\` (banco inacessível?) — veja o passo **Show container logs**." >> "$GITHUB_STEP_SUMMARY"
