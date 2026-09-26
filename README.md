@@ -405,15 +405,7 @@ O Compose de desenvolvimento exige o arquivo `infra/.env`. Crie-o a partir do ex
 (`cp infra/.env.example infra/.env`) e rode os comandos sempre com `--env-file infra/.env`.
 Mesmo subindo só o `db`, o Compose valida todas as variáveis do arquivo.
 
-**Alterei o backend e nada muda / comportamento estranho na porta 3333**
-Provavelmente há dois backends rodando: o do `npm run dev` e o do container (acontece quando o
-Compose foi iniciado sem o `db` no final). No Windows os dois escutam a porta 3333 ao mesmo
-tempo, sem erro. Pare os containers da aplicação:
-`docker compose --env-file infra/.env -f infra/docker-compose.yml stop backend frontend`.
 
-**Troquei a porta da API ou do frontend e o navegador não conecta**
-A URL da API é fixada no build do frontend (`VITE_API_URL`). Ao mudar `API_PORT` ou
-`FRONTEND_PORT` no `infra/.env`, ajuste também `VITE_API_URL` e `CORS_ORIGIN` e rode com `--build`.
 
 **`nvm use` não funciona no Windows**
 O nvm-windows não lê o `.nvmrc`. Informe a versão: `nvm install 22.18.0 && nvm use 22.18.0`.
