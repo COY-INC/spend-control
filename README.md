@@ -162,8 +162,8 @@ Docker em Linux, execute os comandos com `sudo` no seu terminal.
 
 ## 5. Como rodar a partir da imagem publicada
 
-O CD publica duas imagens no Docker Hub, cada uma com três tags: a versão (`1.0.3`), o SHA
-do commit e `latest`. As versões disponíveis estão nas
+O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.3`) e
+`latest`. As versões disponíveis estão nas
 [tags do repositório](https://github.com/COY-INC/spend-control/tags).
 
 ```bash
@@ -226,9 +226,14 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
    no CI**, sem rebuild
 2. Login no Docker Hub com os secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN`
 3. Calcula a versão: incrementa o patch da última tag `vX.Y.Z` do git (a primeira é `v1.0.0`)
-4. Publica cada imagem com três tags: a versão (`1.0.3`), o SHA do commit (rastreável) e `latest`
+4. Publica cada imagem com duas tags: a versão (`1.0.3`) e `latest`
 5. Cria a tag `vX.Y.Z` no commit do merge — só depois do push, então toda tag criada pelo
    pipeline tem imagem correspondente no Docker Hub
+
+**Rastreabilidade:** a tag de versão identifica o commit exato de cada imagem — a imagem
+`1.0.3` corresponde à tag git `v1.0.3`, criada no commit do merge
+(`git rev-list -n1 v1.0.3`). O resumo do job CD também registra o SHA de cada publicação.
+Como a `main` exige PR aprovado, toda versão corresponde a um merge revisado.
 
 Para subir **minor** ou **major**, crie a tag manualmente no último commit da `main`
 (`git tag v1.1.0 && git push origin v1.1.0`); os próximos merges continuam a partir dela

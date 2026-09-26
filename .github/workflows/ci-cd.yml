@@ -266,11 +266,12 @@ jobs:
         run: |
           for image in "$BACKEND_IMAGE" "$FRONTEND_IMAGE"; do
             repo="$REGISTRY_USER/${image%%:*}"
-            for tag in "${{ github.sha }}" "$VERSION" latest; do
+            # A versão é rastreável: X.Y.Z -> tag git vX.Y.Z -> commit do merge.
+            for tag in "$VERSION" latest; do
               docker tag "$image" "$repo:$tag"
               docker push "$repo:$tag"
             done
-            echo "- \`$repo:$VERSION\`, \`$repo:${{ github.sha }}\` e \`$repo:latest\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- \`$repo:$VERSION\` e \`$repo:latest\` (commit \`${{ github.sha }}\`)" >> "$GITHUB_STEP_SUMMARY"
           done
 
       # Só depois do push: a tag no git garante que a versão existe no Docker Hub.
