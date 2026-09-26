@@ -31,7 +31,7 @@ Commits pequenos e coesos são preferíveis a um commit gigante no fim da branch
 - O título do PR deve seguir o formato `ISSUE-<numero> - <titulo descritivo do PR>`, onde `<numero>` é o número da issue relacionada (ex.: `ISSUE-11 - Adiciona regra de título de PR ao CONTRIBUTING`).
 - Referencie a issue com `Closes #<numero>` na descrição — isso fecha a issue automaticamente quando o GitHub processa o merge, **além** da action `close-issue-on-merge.yml` (que fecha e comenta a issue com base no número extraído do nome da branch). As duas coisas são redundantes de propósito: se uma falhar, a outra garante o fechamento.
 - O PR só pode ser mergeado quando:
-  - A pipeline de CI (`ci.yaml`) passar tanto no job `frontend` quanto no job `backend` (install, testes, build).
+  - A pipeline de CI (`ci-cd.yml`) passar nos jobs `Build` e `Test` (frontend e backend) e no job `Docker (build & validate)`.
   - Houver **pelo menos 1 aprovação** de revisão.
 - Mantenha a branch atualizada com a `main` (merge ou rebase) antes de pedir review e antes do merge final, para evitar conflitos e reduzir o risco de a CI passar na branch mas falhar depois do merge.
 - Prefira PRs pequenos e focados em uma única issue — não misture funcionalidades não relacionadas no mesmo PR.
@@ -54,7 +54,7 @@ Commits pequenos e coesos são preferíveis a um commit gigante no fim da branch
 
 ## 7. Gaps conhecidos (para revisitar)
 
-- A branch protection da `main` tem `required_status_checks.contexts` vazio — ou seja, hoje o GitHub **não bloqueia** o merge se a pipeline de CI falhar (mesmo a pipeline rodando e reportando status). Para que a regra da seção 4 seja *imposta* pelo GitHub (e não apenas seguida por convenção), é preciso adicionar os contexts `Install, Test & Build (frontend)` e `Install, Test & Build (backend)` como *required status checks* na branch protection de `main`.
+- A branch protection da `main` já exige os checks `Build (frontend)`, `Build (backend)`, `Test (frontend)` e `Test (backend)` (com `strict: true`), então o GitHub bloqueia o merge se eles falharem. O job `Docker (build & validate)` do `ci-cd.yml` ainda **não** é obrigatório: depois que o pipeline Docker estiver estável na `main`, adicioná-lo aos *required status checks*. Se algum job do CI for renomeado, a lista de checks obrigatórios precisa ser atualizada junto.
 - `Automatically delete head branches` está desativado nas configurações do repositório. Ativar essa opção automatiza a limpeza descrita na seção 5, sem depender de lembrar manualmente.
 
-Essas duas mudanças são configurações do repositório no GitHub (não arquivos versionados) e devem ser aplicadas deliberadamente por quem administra o repositório.
+Esses ajustes são configurações do repositório no GitHub (não arquivos versionados) e devem ser aplicados deliberadamente por quem administra o repositório.

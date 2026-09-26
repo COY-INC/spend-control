@@ -162,12 +162,17 @@ Docker em Linux, execute os comandos com `sudo` no seu terminal.
 
 ## 5. Como rodar a partir da imagem publicada
 
-> 🚧 **Em construção** — será preenchida na issue de publicação no Docker Hub.
+O CD publica duas imagens no Docker Hub, cada uma com a tag do SHA do commit e `latest`:
 
 ```bash
-docker pull <usuario-dockerhub>/spend-control:latest
-docker compose -f docker-compose.prod.yml up
+docker pull coyinc/spend-control-backend:latest
+docker pull coyinc/spend-control-frontend:latest
 ```
+
+> 🚧 **Em construção** — o `docker-compose.prod.yml` que sobe a stack a partir dessas
+> imagens será adicionado na issue #29. A imagem do frontend chama a API em
+> `http://localhost:3333` (valor fixado no build), então a API precisa estar publicada
+> nessa porta do host.
 
 ---
 
@@ -194,25 +199,31 @@ código ≠ 0.
 
 As execuções ficam na aba **[Actions](https://github.com/COY-INC/spend-control/actions)** do GitHub.
 
-**CI** — `.github/workflows/ci.yaml`
-Roda em todo Pull Request para a `main` e em push na `main`. Executa em paralelo
-(matriz) para `frontend` e `backend`:
+Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e CD separados.
 
-1. Checkout do código e setup do Node (versão do `.nvmrc`, com cache do npm)
-2. `npm ci` — instala dependências a partir do lockfile
-3. `npx prisma generate` — gera o client do Prisma (só backend)
-4. `npm test` — testes unitários
-5. `npm run build` — compila a aplicação
-6. Em caso de falha, publica no resumo do job qual etapa quebrou e a causa provável
+**CI** — roda em todo push (qualquer branch) e em todo Pull Request para a `main`:
+
+1. **Build** (matriz `frontend`/`backend`): `npm ci`, `npx prisma generate` (backend),
+   `npm run lint` (frontend) e `npm run build`
+2. **Test** (matriz, após o Build): `npm test`
+3. **Docker**: builda as imagens com o mesmo `infra/docker-compose.yml` do uso local, sobe a
+   stack com `docker compose up --wait` (espera todos os containers ficarem `healthy`), confere
+   `GET /health` da API e a página do frontend, marca as imagens `spend-control-backend` e
+   `spend-control-frontend` com a tag do SHA do commit e salva essas imagens validadas como
+   artefato (`docker save`) — este último passo só em push na `main`, onde o CD o consome
+4. Em caso de falha, o resumo do job mostra qual etapa quebrou e a causa provável
+
+**CD** — só roda depois que **todos** os jobs de CI passam, e só em push na `main`
+(ou seja, após o merge de um PR). Em Pull Request o CD nunca roda.
+
+1. Baixa o artefato do CI e faz `docker load` — **a imagem publicada é a mesma validada
+   no CI**, sem rebuild
+2. Login no Docker Hub com os secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN`
+3. Publica cada imagem com duas tags: o SHA do commit (rastreável) e `latest`
 
 **Automação de issues** — `.github/workflows/close-issue-on-merge.yml`
 Quando um PR é mergeado, fecha automaticamente a issue cujo número aparece no nome da
-branch (ex.: branch `18-readme` fecha a issue #18).
-
-**CD**
-
-> 🚧 **Em construção** — build da imagem Docker, validação com Compose e publicação no
-> Docker Hub, executado só após o CI passar e só na `main`.
+branch (ex.: branch `feature-18` fecha a issue #18).
 
 **Fluxo de trabalho (GitHub Flow):** issue → branch curta `<nº-issue>-descricao` a partir da
 `main` → Pull Request → CI verde + revisão → merge.
