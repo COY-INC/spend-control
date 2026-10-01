@@ -233,19 +233,30 @@ O arquivo `docker-compose.prod.yml`, na raiz, usa somente imagens publicadas,
 sem `build`, bind mounts ou dependência do código-fonte. O PostgreSQL fica na rede
 interna, com volume persistente. Este fluxo é para avaliação local em modo mock.
 
-Em uma pasta vazia, coloque apenas `docker-compose.prod.yml`. Todas as variáveis têm um
-valor padrão de exemplo no próprio arquivo — não é preciso criar `.env` para rodar. Para
-sobrescrever algum valor (por exemplo, fixar uma versão em `IMAGE_TAG`), copie
-`.env.prod.example` para `.env` na mesma pasta e ajuste o que quiser.
+Não é preciso clonar o repositório: basta o `docker-compose.prod.yml`. Todas as variáveis
+têm um valor padrão de exemplo no próprio arquivo, então **o `.env` é opcional**.
 
-O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.3`) e
+O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.9`) e
 `latest`. As versões disponíveis estão nas
 [tags do repositório](https://github.com/COY-INC/spend-control/tags).
 
+Em uma pasta vazia (Linux, macOS ou Git Bash no Windows):
+
 ```bash
-docker pull coyinc/spend-control-backend:latest
-docker pull coyinc/spend-control-frontend:latest
-docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
+mkdir spend-control-prod && cd spend-control-prod
+curl -fsSLO https://raw.githubusercontent.com/COY-INC/spend-control/main/docker-compose.prod.yml
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+```
+
+**Opcional — fixar uma versão.** Para sobrescrever algum valor (por exemplo, `IMAGE_TAG`),
+baixe o modelo de `.env` para a mesma pasta, ajuste e repita o `pull` e o `up`:
+
+```bash
+curl -fsSL -o .env https://raw.githubusercontent.com/COY-INC/spend-control/main/.env.prod.example
+# edite IMAGE_TAG (ex.: 1.0.9, sem o prefixo "v" da tag Git) e rode novamente:
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
 ```
 
 A API publica `http://localhost:3333` e o frontend `http://localhost:8080`.
@@ -262,9 +273,6 @@ curl --fail http://localhost:3333/auth/users
 docker compose -f docker-compose.prod.yml logs --tail=100
 ```
 
-Para usar uma versão rastreável, defina `IMAGE_TAG` no `.env` com uma versão publicada
-(por exemplo, `1.0.3`, sem o prefixo `v` da tag Git),
-execute `docker compose -f docker-compose.prod.yml pull` e repita o `up`.
 `DOCKERHUB_NAMESPACE` permite selecionar a conta que publicou as imagens;
 `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `JWT_SECRET`,
 `PLUGGY_MOCK`, `API_PORT`, `FRONTEND_PORT` e `CORS_ORIGIN` têm padrão no
