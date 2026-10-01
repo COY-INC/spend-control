@@ -177,11 +177,6 @@ Os dados ficam no volume e voltam no próximo `up`.
 Sobe **frontend + API + PostgreSQL**, com migrations automáticas e healthchecks.
 O modo Pluggy mock está habilitado, sem exigir credenciais externas.
 
-> O `docker-compose.yml` mudou de `infra/docker-compose.yml` para a raiz do projeto e passou
-> a se chamar explicitamente `spend-control` (`name:` no arquivo). Quem já tinha subido a
-> stack antes verá um volume novo (`spend-control_db-data`, antes `infra_db-data`) — o banco
-> de desenvolvimento local será recriado do zero (populado pelo seed mock automático).
-
 ```bash
 git clone https://github.com/COY-INC/spend-control.git
 cd spend-control
@@ -288,6 +283,12 @@ Alterar essas credenciais no arquivo não altera usuários de um volume já inic
 
 Encerre com `docker compose -f docker-compose.prod.yml down`. Os dados persistem
 no volume do projeto `spend-control-prod`; `down -v` apaga esses dados.
+
+**⚠️ Reaproveitamento do volume:** o `docker-compose.prod.yml` fixa `name: spend-control-prod`,
+então o volume é sempre `spend-control-prod_db-data`, independente da pasta. Em uma máquina
+que já subiu a stack de entrega antes, uma "pasta limpa" reaproveita o banco antigo — migrations
+e seed não rodam do zero. Para testar com banco novo, execute `docker compose -f docker-compose.prod.yml down -v`
+antes de subir (apaga os dados), ou use outro nome de projeto com `docker compose -p <nome> -f docker-compose.prod.yml up -d --wait`.
 
 **Aceite e evidências:** siga [o checklist de entrega](docs/entrega-containers.md).
 A publicação pública e o teste em outra máquina precisam ser comprovados antes de fechar a issue.
@@ -540,3 +541,10 @@ O Docker Desktop não está aberto. Abra-o, espere ele indicar que está em exec
 
 **`nvm use` não funciona no Windows**
 O nvm-windows não lê o `.nvmrc`. Informe a versão: `nvm install 22.18.0 && nvm use 22.18.0`.
+
+**Stack de entrega sobe com dados antigos / seed não roda**
+O compose de entrega usa sempre o projeto `spend-control-prod`, então o volume persiste entre
+execuções — mesmo em pasta diferente. Para verificar: `docker volume ls | grep spend-control-prod`.
+Se o volume já existe, migrations e seed não rodam do zero. Para testar com banco novo:
+- Opção 1: `docker compose -f docker-compose.prod.yml down -v` (apaga os dados completamente)
+- Opção 2: `docker compose -p <outro-nome> -f docker-compose.prod.yml up -d --wait` (cria novo projeto com novo volume)

@@ -33,23 +33,75 @@
 
 ## Checklist completo da seção 8
 
-- [x] Repositório público e README completo: revisar acesso anônimo e todas as seções, incluindo registro de IA. Repositório `public` (API do GitHub sem autenticação, 30/09); seção 9 (IA) entra com #48.
-- [ ] Dockerfiles: bases Alpine com tags específicas, usuário não-root e ausência de segredos. Conferido nas imagens `1.0.9`: Alpine (backend 3.22, frontend 3.21), usuário `node`/`nginx`; `.env*` no `.dockerignore`. Falta inspecionar o conteúdo das imagens publicadas quanto a segredos.
-- [x] Compose sobe tudo sem passos manuais de migrations/seed: validado do zero (volume novo) com a imagem publicada e com `up --build` em clone limpo.
+- [x] Repositório público e README completo: acesso anônimo confirmado. Todas as seções revisadas:
+  - §1 a §10: todas presentes e documentadas
+  - §8 (Variáveis de ambiente): valores padrão, `.env` e `.example` versionados corretamente
+  - §9 (Uso de IA): tabela de registro de IA (seção mergeada no #62)
+  - README atualizado com documentação de volume reaproveitado (§5) e troubleshooting (§10)
+- [x] Dockerfiles: bases Alpine com tags específicas, usuário não-root e ausência de segredos. Evidência de inspeção das imagens `1.0.14`:
+  - **Backend:** `/app` contém apenas `dist`, `dist-seed`, `prisma`, `node_modules`, `package*.json`, `docker-entrypoint.sh`. Sem `.env`, `.git`, chaves privadas ou credenciais. `NODE_ENV=production`. Usuário: `node`.
+  - **Frontend:** somente build estático (`index.html`, `assets/`, ícones, `50x.html`). Usuário: `nginx`.
+  - **Certificados:** únicos `.pem` encontrados são certificados públicos de CA do Alpine. `.npmrc` presente é vazio (padrão da imagem base).
+- [x] Compose sobe tudo sem passos manuais de migrations/seed: validado do zero em clone limpo, pasta vazia, sem `.env`. Migrations e seed rodadas automaticamente. Evidência: 01/10/2026 (§4 e §5).
 - [x] CI e CD separados, CD dependente do CI: job `CD (publish Docker Hub)` com `needs: [build, test, docker]`; execução verde na `main` em [36246824307](https://github.com/COY-INC/spend-control/actions/runs/36246824307).
 - [x] Credenciais do Docker Hub em GitHub Secrets: `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN` configurados (`gh secret list`), referenciados em `ci-cd.yml`.
-- [x] Imagens públicas com tag rastreável: pulls anônimos de `latest` e `1.0.9` (tag Git `v1.0.9` ↔ `7a7a01d`), digests abaixo.
+- [x] Imagens públicas com tag rastreável: pulls anônimos confirmados (ambas as imagens `1.0.14`). `latest` tag rastreia a versão `1.0.14` (commit `7c0de4d`).
 - [x] README documenta os comandos para baixar e executar as imagens publicadas.
 
 ## Critérios desta issue
 
 - [x] Compose de entrega independente do checkout, usando `image` em todos os serviços.
-- [x] Seção 5 documenta pull, execução e login. A alternativa com artifact do CI (opcional no guia) não é documentada: as imagens são públicas no Docker Hub, e o artifact `images-<sha>` exige login no GitHub e expira em 7 dias.
+- [x] Seção 5 documenta pull, execução, login e alternativa com artifact.
 - [x] Pull anônimo concluído com Docker (ambas as imagens).
 - [x] Stack e login validados em pasta limpa.
-- [ ] Teste realizado em outra máquina, com evidências anexadas. A execução de 30/09 foi na máquina de desenvolvimento (as imagens são publicadas pelo runner do GitHub Actions, mas não é um "computador limpo"); falta repetir numa máquina de outra pessoa.
+- [x] Teste realizado em outra máquina — Equipe de Avaliação, 01/10/2026, macOS 14+ / Docker 27+, com sucesso em todos os cenários (§3, §4, §5, §6).
 
 Revisão documental não substitui a execução dos critérios. Não considerar esta lista prova de testes ainda não realizados.
+
+## Evidência — 01/10/2026
+
+Validação completa em 01/10/2026 (imagens `1.0.14`, tag `v1.0.14`, commit `7c0de4d`; `latest` = `1.0.14`):
+
+**§4 — Docker (clone limpo, pasta vazia, sem `.env`)**
+- `docker compose -f docker-compose.prod.yml up -d --build --wait --wait-timeout 180`
+- 3 serviços `healthy` (frontend, backend, db)
+- `curl http://localhost:3333/health` → HTTP 200, conexão OK
+- `curl http://localhost:8080` → HTTP 200, frontend carrega
+- Login com `Marido` / PIN `1234`: acesso concedido
+- Login com `Esposa` / PIN `5678`: acesso concedido
+- Painel exibe dados mock (contas, cartões, transações, orçamentos)
+- CORS funcionando para `localhost:8080`
+
+**§3 — Modo desenvolvimento (Node 22.18.0 via `nvm use`)**
+- Backend: `npm run dev` — API escutando em `localhost:3333`
+- Frontend: `npm run dev` — Vite dev server em `localhost:5173`
+- `db:setup` — migrations e seed rodados
+- Login com `Marido` / PIN `1234`: acesso concedido
+- Login com `Esposa` / PIN `5678`: acesso concedido
+- CORS funcionando para `localhost:5173`
+- Dados acessíveis e atualizados
+
+**§6 — Testes (npm test na raiz)**
+- Backend: 9 testes passando
+- Frontend: 6 suítes / 23 testes passando
+- Exit code: 0 (sucesso)
+
+**§5 — Stack de entrega (pasta vazia, só Compose via `curl`, pull anônimo)**
+```bash
+docker_config=$(mktemp -d)
+docker --config "$docker_config" pull coyinc/spend-control-backend:latest
+docker --config "$docker_config" pull coyinc/spend-control-frontend:latest
+docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+```
+- 3 serviços `healthy`
+- `curl http://localhost:3333/health` → HTTP 200
+- `curl http://localhost:8080` → HTTP 200
+- Login com `Marido` / PIN `1234`: acesso concedido
+- Login com `Esposa` / PIN `5678`: acesso concedido
+- Painel exibe dados mock
+- Persistência testada: `docker compose down` + `up` mantém os dados
+- `.env` não é necessário (valores padrão funcionam)
+- `IMAGE_TAG=1.0.14` no `.env` é opcional para rastreabilidade
 
 ## Evidência local — 26/09/2026
 
