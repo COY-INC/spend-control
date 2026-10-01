@@ -2,12 +2,15 @@ import { Router } from "express";
 import { fetchItemData, createConnectToken } from "./pluggy.service";
 import { upsertTransactions, upsertAccounts, upsertBills, prisma } from "../transactions/transaction.repository";
 import { requireAuth } from "../auth/requireAuth";
+import { pluggyLimiter } from "../security/rateLimit";
 
 export const pluggyRouter = Router();
+// Limite dedicado às rotas que chamam a API externa da Pluggy.
+const pluggyRateLimit = pluggyLimiter();
 
 // Token temporário para o widget PluggyConnect no frontend.
 // ?itemId=<nosso id> → modo update (re-autenticar/atualizar conexão existente — MeuPluggy proxy).
-pluggyRouter.get("/connect-token", requireAuth, async (req, res) => {
+pluggyRouter.get("/connect-token", pluggyRateLimit, requireAuth, async (req, res) => {
   try {
     let pluggyItemId: string | undefined;
     const { itemId } = req.query;
@@ -25,7 +28,7 @@ pluggyRouter.get("/connect-token", requireAuth, async (req, res) => {
 
 // Salva um Item novo conectado pelo widget, vinculado ao usuário ativo.
 // Body: { pluggyItemId, userId }
-pluggyRouter.post("/items", requireAuth, async (req, res) => {
+pluggyRouter.post("/items", pluggyRateLimit, requireAuth, async (req, res) => {
   const { pluggyItemId, userId } = req.body ?? {};
   if (!pluggyItemId || !userId) {
     return res.status(400).json({ error: "pluggyItemId e userId são obrigatórios" });

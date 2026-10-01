@@ -16,8 +16,11 @@ import { categoriesRouter } from "./modules/categories/categories.controller";
 import { subscriptionsRouter } from "./modules/subscriptions/subscriptions.controller";
 import { investmentsRouter } from "./modules/investments/investments.controller";
 import { startSyncScheduler } from "./modules/sync/sync.service";
+import { globalLimiter, trustProxySetting } from "./modules/security/rateLimit";
 
 const app = express();
+// Proxies reversos à frente da API (TRUST_PROXY), para o rate limit enxergar o IP real do cliente.
+app.set("trust proxy", trustProxySetting());
 // Origens do frontend liberadas via CORS_ORIGIN (lista separada por vírgula; fallback: Vite local).
 const corsOrigins = (process.env.CORS_ORIGIN || "http://localhost:5173")
   .split(",")
@@ -34,6 +37,7 @@ app.get("/health", async (_req, res) => {
   }
 });
 
+app.use(globalLimiter()); // rate limit por IP para todas as rotas abaixo (/health fica de fora)
 app.use("/auth", authRouter); // público (login)
 app.use("/pluggy", pluggyRouter); // webhook é público; o resto se protege no próprio router
 app.use(requireAuth); // ↓ todas as rotas abaixo exigem "Authorization: Bearer <jwt>"
