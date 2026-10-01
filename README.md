@@ -245,9 +245,15 @@ Em uma pasta vazia (Linux, macOS ou Git Bash no Windows):
 ```bash
 mkdir spend-control-prod && cd spend-control-prod
 curl -fsSLO https://raw.githubusercontent.com/COY-INC/spend-control/main/docker-compose.prod.yml
-docker compose -f docker-compose.prod.yml pull
+docker pull coyinc/spend-control-backend:latest
+docker pull coyinc/spend-control-frontend:latest
 docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
 ```
+
+As imagens publicadas no Docker Hub são
+[`coyinc/spend-control-backend`](https://hub.docker.com/r/coyinc/spend-control-backend) e
+[`coyinc/spend-control-frontend`](https://hub.docker.com/r/coyinc/spend-control-frontend);
+o `docker-compose.prod.yml` aponta para elas (`image:`), sem build local.
 
 **Opcional — fixar uma versão.** Para sobrescrever algum valor (por exemplo, `IMAGE_TAG`),
 baixe o modelo de `.env` para a mesma pasta, ajuste e repita o `pull` e o `up`:
