@@ -4,9 +4,19 @@
 
 1. Registre nome do avaliador, data, sistema/arquitetura e SHA das imagens.
 2. Use uma máquina diferente da utilizada na publicação, com Docker e Compose.
-3. Em pasta limpa, coloque somente `docker-compose.prod.yml`. Não copie o código-fonte. O `.env`
-   (baseado em `.env.prod.example`) é opcional — o Compose já tem valores padrão — mas use-o
-   para fixar `IMAGE_TAG` numa versão publicada e garantir rastreabilidade do teste.
+3. Em pasta limpa, baixe somente o `docker-compose.prod.yml` direto do GitHub — não clone nem copie o código-fonte:
+
+   ```bash
+   mkdir spend-control-prod && cd spend-control-prod
+   curl -fsSLO https://raw.githubusercontent.com/COY-INC/spend-control/main/docker-compose.prod.yml
+   ```
+
+   O `.env` é opcional — o Compose já tem valores padrão. Para fixar `IMAGE_TAG` numa versão publicada e garantir rastreabilidade do teste, baixe o modelo e edite `IMAGE_TAG` (ex.: `1.0.9`):
+
+   ```bash
+   curl -fsSL -o .env https://raw.githubusercontent.com/COY-INC/spend-control/main/.env.prod.example
+   ```
+
 4. Execute os pulls sem credenciais. Em Linux/macOS, use uma configuração temporária vazia, sem encerrar sua sessão Docker habitual:
 
    ```bash
@@ -16,7 +26,7 @@
    ```
 
    Se usar sudo, aplique-o também a esses comandos. Guarde a saída com os digests; o token anônimo do registry não exige uma conta autenticada.
-5. Execute `docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180`.
+5. Execute `docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180`.
 6. Confira `ps`, `/health` e login no navegador com Marido/1234 e Esposa/5678. Verifique que o painel mostra dados.
 7. Execute `down` e depois `up` novamente para verificar a persistência. Não use `-v` ao testar preservação dos dados.
 8. Anexe evidências à issue e marque os itens abaixo somente após executar.
