@@ -2,6 +2,7 @@ import { Router } from "express";
 import jwt from "jsonwebtoken";
 import { prisma } from "../transactions/transaction.repository";
 import { hashPin, verifyPin, isHashed } from "./pin";
+import { loginLimiter } from "../security/rateLimit";
 
 export const authRouter = Router();
 
@@ -17,9 +18,11 @@ authRouter.get("/users", async (_req, res) => {
 const MAX_ATTEMPTS = 5;
 const LOCK_MS = 15 * 60 * 1000;
 const attempts = new Map<string, { count: number; until: number }>();
+// Além da trava por usuário, limita tentativas por IP (cobre flood contra vários usuários).
+const loginRateLimit = loginLimiter();
 
 // POST /auth/login { userId, pin } -> { token } (JWT válido por 30 dias)
-authRouter.post("/login", async (req, res) => {
+authRouter.post("/login", loginRateLimit, async (req, res) => {
   const { userId, pin } = req.body ?? {};
   if (!userId || pin === undefined) {
     return res.status(400).json({ error: "userId e pin são obrigatórios." });
