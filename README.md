@@ -177,11 +177,6 @@ Os dados ficam no volume e voltam no próximo `up`.
 Sobe **frontend + API + PostgreSQL**, com migrations automáticas e healthchecks.
 O modo Pluggy mock está habilitado, sem exigir credenciais externas.
 
-> O `docker-compose.yml` mudou de `infra/docker-compose.yml` para a raiz do projeto e passou
-> a se chamar explicitamente `spend-control` (`name:` no arquivo). Quem já tinha subido a
-> stack antes verá um volume novo (`spend-control_db-data`, antes `infra_db-data`) — o banco
-> de desenvolvimento local será recriado do zero (populado pelo seed mock automático).
-
 ```bash
 git clone https://github.com/COY-INC/spend-control.git
 cd spend-control
