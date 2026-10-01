@@ -387,6 +387,7 @@ um modelo `.example` versionado, com valores que funcionam localmente (nunca seg
 | `PLUGGY_CLIENT_SECRET` | Client secret da Pluggy (só com Pluggy real) | `seu-client-secret` |
 | `SYNC_INTERVAL_HOURS` | Intervalo do sync automático em horas (padrão `6`; `0` desliga) | `6` |
 | `WEBHOOK_URL` | URL pública deste backend para receber webhooks da Pluggy | `https://sua-api.exemplo.com/pluggy/webhook` |
+| `TRUST_PROXY` | Nº de proxies reversos à frente da API (ex.: `1` no Railway), para o rate limit usar o IP real do cliente (padrão `0`: API exposta direto) | `0` |
 
 **Frontend** (`frontend/.env`)
 
@@ -453,6 +454,11 @@ assinar nem validar tokens.
 O backend precisa estar rodando antes do frontend, na porta 3333. Com `VITE_API_URL` vazio o
 frontend usa `http://localhost:3333`; se mudar a porta da API, ajuste essa variável e
 também o `CORS_ORIGIN` do backend.
+
+**API responde `429 Muitas requisições`**
+A API limita requisições por IP: 1000 a cada 15 min no geral, 10 em `POST /auth/login` e 30 nas
+rotas `/pluggy/connect-token` e `/pluggy/items`. Aguarde a janela expirar. Atrás de um proxy reverso
+(ex.: Railway), defina `TRUST_PROXY=1` — sem isso todos os clientes compartilham o IP do proxy.
 
 **`db:setup` falha com `Environment variable not found: DATABASE_URL`**
 O `backend/.env` não existe ou está vazio. Rode o passo 2 da seção 3
