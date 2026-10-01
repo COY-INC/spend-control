@@ -44,7 +44,7 @@
 ## Critérios desta issue
 
 - [x] Compose de entrega independente do checkout, usando `image` em todos os serviços.
-- [x] Seção 5 documenta pull, execução, login e alternativa com artifact.
+- [x] Seção 5 documenta pull, execução e login. A alternativa com artifact do CI (opcional no guia) não é documentada: as imagens são públicas no Docker Hub, e o artifact `images-<sha>` exige login no GitHub e expira em 7 dias.
 - [ ] Pull anônimo concluído com Docker (ambas as imagens).
 - [ ] Stack e login validados em pasta limpa.
 - [ ] Teste realizado em outra máquina, com evidências anexadas.
