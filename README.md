@@ -347,11 +347,12 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
    no CI**, sem rebuild
 2. Login no Docker Hub com os secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN`
 3. Calcula a versão: incrementa o patch da última tag `vX.Y.Z` do git (a primeira é `v1.0.0`)
-4. Publica cada imagem com duas tags: a versão (`1.0.3`) e `latest`
+4. Publica cada imagem com duas tags: a versão (ex.: `1.0.9`) e `latest`
 5. Cria a tag `vX.Y.Z` no commit do merge — só depois do push, então toda tag criada pelo
    pipeline tem imagem correspondente no Docker Hub
 
-**Rastreabilidade:** a imagem `1.0.3` no Docker Hub corresponde à tag Git `v1.0.3`.
+**Rastreabilidade:** a imagem `1.0.9` no Docker Hub corresponde à tag Git `v1.0.9`
+(versões disponíveis nas [tags do repositório](https://github.com/COY-INC/spend-control/tags)).
 Use a versão publicada em `IMAGE_TAG` para executar uma entrega específica.
 Como a `main` exige PR aprovado, toda versão corresponde a um merge revisado.
 
@@ -426,7 +427,7 @@ senhas e `JWT_SECRET` em qualquer ambiente exposto. Colunas: **dev** = `docker-c
 | `DB_PORT` | Porta do PostgreSQL publicada no host | `5433` | ✓ | — |
 | `VITE_API_URL` | *Build arg* do frontend: URL da API incorporada ao bundle (mudou a porta da API? ajuste e rode com `--build`) | `http://localhost:3333` | ✓ | — |
 | `DOCKERHUB_NAMESPACE` | Conta do Docker Hub de onde vêm as imagens | `coyinc` | — | ✓ |
-| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.3`) | `latest` | — | ✓ |
+| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.9`) | `latest` | — | ✓ |
 
 Dentro dos containers a API sempre escuta em `PORT=3333` (fixo no Compose); `API_PORT`
 muda só a porta do host. Na imagem publicada, `VITE_API_URL` já foi fixado no build do CI
@@ -474,6 +475,40 @@ No Windows é comum já existir um PostgreSQL nativo na porta 5432 — a aplica�
 conectando nele, com outro usuário e senha. Por isso o banco do `docker-compose.yml`
 é publicado na porta **5433**. Confira se o `DATABASE_URL` usa `localhost:5433` e
 usuário/senha `admin`/`adminpassword`.
+
+**Porta 3333, 8080 ou 5433 ocupada (`bind: address already in use` / `port is already allocated`)**
+Outro processo já usa a porta: em geral o `npm run dev` do backend (3333) junto com o backend
+em container — por isso o passo 3 da seção 3 sobe só o `db` —, ou a stack de desenvolvimento
+e a de entrega (seção 5) rodando ao mesmo tempo. Descubra quem ocupa a porta:
+
+```bash
+lsof -i :3333                 # Linux/macOS
+netstat -ano | findstr 3333   # Windows (a última coluna é o PID)
+docker ps                     # containers que publicam a porta
+```
+
+Encerre o processo (`Ctrl+C` no `npm run dev`) ou a outra stack (`docker compose down`, ou
+`docker compose -f docker-compose.prod.yml down`). Na stack de desenvolvimento dá para trocar
+`API_PORT`, `FRONTEND_PORT` ou `DB_PORT` no `.env` da raiz — ao mudar `API_PORT`, ajuste
+também `VITE_API_URL` e `CORS_ORIGIN` e rode com `--build` (seção 8). Na stack de entrega
+mantenha `API_PORT=3333`: libere a porta em vez de trocá-la.
+
+**`up --wait` estoura o tempo / container `unhealthy`**
+Algum container não passou no healthcheck a tempo. Veja qual e por quê:
+
+```bash
+docker compose ps                         # STATUS mostra quem está unhealthy
+docker compose logs --tail=100 backend    # ou db / frontend
+```
+
+(na stack de entrega, acrescente `-f docker-compose.prod.yml`). Causas comuns:
+- **Banco ainda subindo** (primeira execução, máquina lenta): rode o `up` de novo ou aumente
+  `--wait-timeout`.
+- **Migration falhando** — o log do backend mostra o erro do Prisma.
+- **`P1000 Authentication failed` com `POSTGRES_*` alterados**: as credenciais só valem na
+  criação do volume. Se o volume já existia com outro usuário/senha, o `DATABASE_URL` novo não
+  confere. Deixe `DATABASE_URL` consistente com `POSTGRES_*` e recrie o volume com `down -v`
+  (apaga os dados).
 
 **Login retorna 401 / erro de JWT**
 A variável `JWT_SECRET` não está definida no `backend/.env`. Sem ela a API não consegue
