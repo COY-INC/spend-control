@@ -387,7 +387,6 @@ um modelo `.example` versionado, com valores que funcionam localmente (nunca seg
 | `PLUGGY_CLIENT_SECRET` | Client secret da Pluggy (só com Pluggy real) | `seu-client-secret` |
 | `SYNC_INTERVAL_HOURS` | Intervalo do sync automático em horas (padrão `6`; `0` desliga) | `6` |
 | `WEBHOOK_URL` | URL pública deste backend para receber webhooks da Pluggy | `https://sua-api.exemplo.com/pluggy/webhook` |
-| `TRUST_PROXY` | Nº de proxies reversos à frente da API (ex.: `1` no Railway), para o rate limit usar o IP real do cliente (padrão `0`: API exposta direto) | `0` |
 
 **Frontend** (`frontend/.env`)
 
@@ -432,31 +431,9 @@ como `http://localhost:3333` — por isso mantenha `API_PORT=3333` no compose de
 > Registro do uso de IA no projeto. Lembrete da disciplina: *toda saída de IA é hipótese até
 > ser validada por teste, execução ou revisão humana.*
 
-Levantamento feito a partir do histórico do repositório: commits com `Co-Authored-By` de IA,
-descrições de PR geradas pelo Claude Code, os prompts em `INSTRUCOES_CLAUDE.md` e os
-documentos de design em `docs/superpowers/`. Cada saída só entrou na `main` por PR, com CI
-verde e aprovação de outro membro da equipe (branch protection), além da validação indicada
-na última coluna.
-
-| Data | Ferramenta | O que foi pedido | O que foi aceito | O que foi corrigido / descartado | Como foi validado |
-|---|---|---|---|---|---|
-| ago/2026 | Claude Code | Montar o MVP a partir do prompt de `INSTRUCOES_CLAUDE.md`: monorepo `backend`/`frontend`, Express + Prisma, schema do casal, seed com Marido/Esposa, React + Vite + Tailwind/shadcn | Estrutura de pastas, schema Prisma, rotas de contas/saldo/transações e seed mock | **Descartada** a regra do prompt "não criar testes automatizados": a equipe adicionou testes (#4, #5) e CI depois | Execução local da API e do frontend com o seed mock |
-| 29/08 a 12/09/2026 | Claude Code (plugin *superpowers*) | Design e plano de implementação das features: navegação por seções, faturas futuras, comentários de transação, antecipar parcela, export XLSX, múltiplas categorias, parcelas sintéticas | Specs e planos em `docs/superpowers/` usados como roteiro de implementação | Cada spec só virou plano depois de revisada e marcada como aprovada pelo desenvolvedor (campo *Status*) | Revisão humana do design; uso do app com o seed mock |
-| 12/09/2026 | Claude Code (Sonnet 5) | Pipeline de CI inicial (#1): `npm ci`, testes e build, com resumo da etapa que falhou | Matrix `frontend`/`backend`, `prisma generate` antes do build, Job Summary de falha | Node 20 → 22 (versão do projeto); o passo que só **avisava** quando faltava o script `test` foi removido no #13, porque escondia falha | Execuções no GitHub Actions |
-| 12/09/2026 | GitHub Copilot (agente) | Sincronizar o `package-lock.json` do frontend com a dependência de teste `tsx` (PRs #7 e #9) | Sincronização do lockfile no PR #9 (testes do frontend) | **Descartado** no PR #7 (testes do backend): mexia no frontend fora do escopo e foi revertido (`80e6304`) | CI do PR; revisão do diff |
-| 12/09/2026 | Claude Code (Sonnet 5) | Infraestrutura de testes do frontend com Jest + Testing Library (#5) | Configuração do Jest e primeiros testes | — | `npm test` no frontend e CI |
-| 12/09/2026 | Claude Code (Sonnet 5) | `CONTRIBUTING.md` e templates de PR/issue (#11) | Fluxo issue → branch → PR, Conventional Commits, templates | Regra de título de PR (`ISSUE-<n> - <título>`) incluída depois, a pedido da equipe | Revisão no PR #12 |
-| 24/09/2026 | Claude Code (Opus 5.5) | Separar build e testes em jobs distintos no CI (#13) | Jobs `Build`/`Test` com `needs`, resumo de falha por job | Fallback de "testes ausentes" removido; checks obrigatórios da `main` cadastrados à mão depois do merge | Commit temporário quebrando o build: `Build (backend)` falhou e `Test` ficou *skipped*; depois revertido |
-| 25/09/2026 | Claude Code (Sonnet 5) | `npm test` do backend rodando todos os `*.test.ts` (#21) | `tsx --test "src/**/*.test.ts"` e §6 do README | — | 7/7 testes passando; um assert quebrado de propósito fez o comando sair com código 1 |
-| 25/09/2026 | Claude Code | Rota `GET /health` checando o banco (#20) | Rota pública antes do `requireAuth`, com `SELECT 1` | — | `curl` → 200 com o banco no ar e 503 com o banco parado, sem derrubar a API |
-| 25 e 26/09/2026 | Claude Code (Opus 5.5) | Pipeline CI/CD único (`ci-cd.yml`, #25): build da imagem, validação com Compose + `/health`, CD publicando no Docker Hub | Jobs `docker` e `cd`, CD com `needs` em todo o CI e só em push na `main`, publicação da mesma imagem validada (`docker save`/`load`) | O job `docker` assumia um Compose diferente do que entrou na `main` e foi adaptado; artefato de imagens restrito à `main`; nomes das imagens corrigidos no README | Pipeline verde no PR #31 (CD *skipped*) e publicação no Docker Hub após o merge |
-| 25 e 26/09/2026 | Claude Code (Opus 5.5) | Ajustar o `backend/Dockerfile` às regras do guia (#34) | Base `node:22.18.0-alpine` fixada, `USER node`, `prisma` em `dependencies` com `npx --no-install`, runtime sem `.ts` | `openssl` incluído depois que o container **não subiu** como `node` no teste; o seed passou a ser compilado (`dist-seed`) para não levar `tsx` à imagem | `docker compose up --build --wait` do zero (3 serviços *healthy*), `whoami` → `node`, API subindo sem internet, login Marido/1234 |
-| 26/09/2026 | Claude Code (Opus 5.5) | Versionamento automático das imagens (#39) | Patch +1 da última tag `vX.Y.Z` a cada merge, tag Git anotada no commit do merge | **Descartado** atualizar o `version` do `package.json` (exigiria commit do pipeline na `main` protegida) | Cenários da lógica testados localmente; após o merge, `v1.0.0` e `v1.0.1` criadas com o mesmo digest no Docker Hub |
-| 26/09/2026 | Claude Code (Opus 5.5) | Parar de publicar a tag com SHA no Docker Hub (#43) | Publicação só com `X.Y.Z` e `latest`; SHA registrado no resumo do job | Como o guia pede tag rastreável, foi acrescentado o parágrafo de rastreabilidade no README §7 (imagem → tag Git → commit) | CI do PR; tags conferidas no Docker Hub após o merge |
-| 26/09/2026 | Claude Code | Mover o Compose para a raiz e subir com um único comando, sem `.env` (#51) | `docker-compose.yml` na raiz, `${VAR:-padrão}` nos dois Compose, pasta `infra/` removida | A sessão de IA não tinha Docker e não rodou a stack: a validação ficou para o CI e para a revisão | Job `docker` do CI subindo a stack sem `.env`; `docker compose config` sem `.env` |
-| 26/09/2026 | Claude Code (Opus 5.5) | Comando único `npm test` na raiz (#52) | `package.json` raiz chamando os testes do backend e do frontend; §6 do README | Pré-requisito de Node 22 (`nvm use`) adicionado ao README: com Node 20 o glob do `tsx --test` falha | Backend 8/8 e frontend 23/23; teste quebrado em cada pacote → código de saída 1 |
-| 26/09/2026 | Claude Code (Opus 5.5) | README §2 (portas) e §8 (variáveis do Compose) (#53) | Tabela de portas por modo, diagrama da rede do Compose, tabela de variáveis com padrão dev/prod | — | Script comparando as variáveis de cada Compose e dos `.env*.example` com a tabela do README |
-| 30/09/2026 | Claude Code (Opus 5.5) | Preencher esta seção a partir do histórico do repositório (#48) | Tabela acima | Entraram só usos com evidência no repositório (co-autoria em commit, texto de PR ou documento) | Conferência com `git log` e os PRs citados; revisão no PR |
+| Data | Ferramenta | O que foi pedido | O que foi aceito | O que foi corrigido / descartado |
+|---|---|---|---|---|
+| | | | | |
 
 ---
 
@@ -476,11 +453,6 @@ assinar nem validar tokens.
 O backend precisa estar rodando antes do frontend, na porta 3333. Com `VITE_API_URL` vazio o
 frontend usa `http://localhost:3333`; se mudar a porta da API, ajuste essa variável e
 também o `CORS_ORIGIN` do backend.
-
-**API responde `429 Muitas requisições`**
-A API limita requisições por IP: 1000 a cada 15 min no geral, 10 em `POST /auth/login` e 30 nas
-rotas `/pluggy/connect-token` e `/pluggy/items`. Aguarde a janela expirar. Atrás de um proxy reverso
-(ex.: Railway), defina `TRUST_PROXY=1` — sem isso todos os clientes compartilham o IP do proxy.
 
 **`db:setup` falha com `Environment variable not found: DATABASE_URL`**
 O `backend/.env` não existe ou está vazio. Rode o passo 2 da seção 3
