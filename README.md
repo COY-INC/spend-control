@@ -233,19 +233,36 @@ O arquivo `docker-compose.prod.yml`, na raiz, usa somente imagens publicadas,
 sem `build`, bind mounts ou dependência do código-fonte. O PostgreSQL fica na rede
 interna, com volume persistente. Este fluxo é para avaliação local em modo mock.
 
-Em uma pasta vazia, coloque apenas `docker-compose.prod.yml`. Todas as variáveis têm um
-valor padrão de exemplo no próprio arquivo — não é preciso criar `.env` para rodar. Para
-sobrescrever algum valor (por exemplo, fixar uma versão em `IMAGE_TAG`), copie
-`.env.prod.example` para `.env` na mesma pasta e ajuste o que quiser.
+Não é preciso clonar o repositório: basta o `docker-compose.prod.yml`. Todas as variáveis
+têm um valor padrão de exemplo no próprio arquivo, então **o `.env` é opcional**.
 
-O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.3`) e
+O CD publica duas imagens no Docker Hub, cada uma com duas tags: a versão (`1.0.9`) e
 `latest`. As versões disponíveis estão nas
 [tags do repositório](https://github.com/COY-INC/spend-control/tags).
 
+Em uma pasta vazia (Linux, macOS ou Git Bash no Windows):
+
 ```bash
+mkdir spend-control-prod && cd spend-control-prod
+curl -fsSLO https://raw.githubusercontent.com/COY-INC/spend-control/main/docker-compose.prod.yml
 docker pull coyinc/spend-control-backend:latest
 docker pull coyinc/spend-control-frontend:latest
-docker compose -f docker-compose.prod.yml up -d --no-build --wait --wait-timeout 180
+docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
+```
+
+As imagens publicadas no Docker Hub são
+[`coyinc/spend-control-backend`](https://hub.docker.com/r/coyinc/spend-control-backend) e
+[`coyinc/spend-control-frontend`](https://hub.docker.com/r/coyinc/spend-control-frontend);
+o `docker-compose.prod.yml` aponta para elas (`image:`), sem build local.
+
+**Opcional — fixar uma versão.** Para sobrescrever algum valor (por exemplo, `IMAGE_TAG`),
+baixe o modelo de `.env` para a mesma pasta, ajuste e repita o `pull` e o `up`:
+
+```bash
+curl -fsSL -o .env https://raw.githubusercontent.com/COY-INC/spend-control/main/.env.prod.example
+# edite IMAGE_TAG (ex.: 1.0.9, sem o prefixo "v" da tag Git) e rode novamente:
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d --wait --wait-timeout 180
 ```
 
 A API publica `http://localhost:3333` e o frontend `http://localhost:8080`.
@@ -262,9 +279,6 @@ curl --fail http://localhost:3333/auth/users
 docker compose -f docker-compose.prod.yml logs --tail=100
 ```
 
-Para usar uma versão rastreável, defina `IMAGE_TAG` no `.env` com uma versão publicada
-(por exemplo, `1.0.3`, sem o prefixo `v` da tag Git),
-execute `docker compose -f docker-compose.prod.yml pull` e repita o `up`.
 `DOCKERHUB_NAMESPACE` permite selecionar a conta que publicou as imagens;
 `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `DATABASE_URL`, `JWT_SECRET`,
 `PLUGGY_MOCK`, `API_PORT`, `FRONTEND_PORT` e `CORS_ORIGIN` têm padrão no
@@ -339,11 +353,12 @@ Tudo vive em um único workflow — `.github/workflows/ci-cd.yml` — com CI e C
    no CI**, sem rebuild
 2. Login no Docker Hub com os secrets `DOCKERHUB_USERNAME` e `DOCKERHUB_TOKEN`
 3. Calcula a versão: incrementa o patch da última tag `vX.Y.Z` do git (a primeira é `v1.0.0`)
-4. Publica cada imagem com duas tags: a versão (`1.0.3`) e `latest`
+4. Publica cada imagem com duas tags: a versão (ex.: `1.0.9`) e `latest`
 5. Cria a tag `vX.Y.Z` no commit do merge — só depois do push, então toda tag criada pelo
    pipeline tem imagem correspondente no Docker Hub
 
-**Rastreabilidade:** a imagem `1.0.3` no Docker Hub corresponde à tag Git `v1.0.3`.
+**Rastreabilidade:** a imagem `1.0.9` no Docker Hub corresponde à tag Git `v1.0.9`
+(versões disponíveis nas [tags do repositório](https://github.com/COY-INC/spend-control/tags)).
 Use a versão publicada em `IMAGE_TAG` para executar uma entrega específica.
 Como a `main` exige PR aprovado, toda versão corresponde a um merge revisado.
 
@@ -419,7 +434,7 @@ senhas e `JWT_SECRET` em qualquer ambiente exposto. Colunas: **dev** = `docker-c
 | `DB_PORT` | Porta do PostgreSQL publicada no host | `5433` | ✓ | — |
 | `VITE_API_URL` | *Build arg* do frontend: URL da API incorporada ao bundle (mudou a porta da API? ajuste e rode com `--build`) | `http://localhost:3333` | ✓ | — |
 | `DOCKERHUB_NAMESPACE` | Conta do Docker Hub de onde vêm as imagens | `coyinc` | — | ✓ |
-| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.3`) | `latest` | — | ✓ |
+| `IMAGE_TAG` | Versão das imagens publicadas (`latest` ou ex.: `1.0.9`) | `latest` | — | ✓ |
 
 Dentro dos containers a API sempre escuta em `PORT=3333` (fixo no Compose); `API_PORT`
 muda só a porta do host. Na imagem publicada, `VITE_API_URL` já foi fixado no build do CI
@@ -432,9 +447,31 @@ como `http://localhost:3333` — por isso mantenha `API_PORT=3333` no compose de
 > Registro do uso de IA no projeto. Lembrete da disciplina: *toda saída de IA é hipótese até
 > ser validada por teste, execução ou revisão humana.*
 
-| Data | Ferramenta | O que foi pedido | O que foi aceito | O que foi corrigido / descartado |
-|---|---|---|---|---|
-| | | | | |
+Levantamento feito a partir do histórico do repositório: commits com `Co-Authored-By` de IA,
+descrições de PR geradas pelo Claude Code, os prompts em `INSTRUCOES_CLAUDE.md` e os
+documentos de design em `docs/superpowers/`. Cada saída só entrou na `main` por PR, com CI
+verde e aprovação de outro membro da equipe (branch protection), além da validação indicada
+na última coluna.
+
+| Data | Ferramenta | O que foi pedido | O que foi aceito | O que foi corrigido / descartado | Como foi validado |
+|---|---|---|---|---|---|
+| ago/2026 | Claude Code | Montar o MVP a partir do prompt de `INSTRUCOES_CLAUDE.md`: monorepo `backend`/`frontend`, Express + Prisma, schema do casal, seed com Marido/Esposa, React + Vite + Tailwind/shadcn | Estrutura de pastas, schema Prisma, rotas de contas/saldo/transações e seed mock | **Descartada** a regra do prompt "não criar testes automatizados": a equipe adicionou testes (#4, #5) e CI depois | Execução local da API e do frontend com o seed mock |
+| 29/08 a 12/09/2026 | Claude Code (plugin *superpowers*) | Design e plano de implementação das features: navegação por seções, faturas futuras, comentários de transação, antecipar parcela, export XLSX, múltiplas categorias, parcelas sintéticas | Specs e planos em `docs/superpowers/` usados como roteiro de implementação | Cada spec só virou plano depois de revisada e marcada como aprovada pelo desenvolvedor (campo *Status*) | Revisão humana do design; uso do app com o seed mock |
+| 12/09/2026 | Claude Code (Sonnet 5) | Pipeline de CI inicial (#1): `npm ci`, testes e build, com resumo da etapa que falhou | Matrix `frontend`/`backend`, `prisma generate` antes do build, Job Summary de falha | Node 20 → 22 (versão do projeto); o passo que só **avisava** quando faltava o script `test` foi removido no #13, porque escondia falha | Execuções no GitHub Actions |
+| 12/09/2026 | GitHub Copilot (agente) | Sincronizar o `package-lock.json` do frontend com a dependência de teste `tsx` (PRs #7 e #9) | Sincronização do lockfile no PR #9 (testes do frontend) | **Descartado** no PR #7 (testes do backend): mexia no frontend fora do escopo e foi revertido (`80e6304`) | CI do PR; revisão do diff |
+| 12/09/2026 | Claude Code (Sonnet 5) | Infraestrutura de testes do frontend com Jest + Testing Library (#5) | Configuração do Jest e primeiros testes | — | `npm test` no frontend e CI |
+| 12/09/2026 | Claude Code (Sonnet 5) | `CONTRIBUTING.md` e templates de PR/issue (#11) | Fluxo issue → branch → PR, Conventional Commits, templates | Regra de título de PR (`ISSUE-<n> - <título>`) incluída depois, a pedido da equipe | Revisão no PR #12 |
+| 24/09/2026 | Claude Code (Opus 5.5) | Separar build e testes em jobs distintos no CI (#13) | Jobs `Build`/`Test` com `needs`, resumo de falha por job | Fallback de "testes ausentes" removido; checks obrigatórios da `main` cadastrados à mão depois do merge | Commit temporário quebrando o build: `Build (backend)` falhou e `Test` ficou *skipped*; depois revertido |
+| 25/09/2026 | Claude Code (Sonnet 5) | `npm test` do backend rodando todos os `*.test.ts` (#21) | `tsx --test "src/**/*.test.ts"` e §6 do README | — | 7/7 testes passando; um assert quebrado de propósito fez o comando sair com código 1 |
+| 25/09/2026 | Claude Code | Rota `GET /health` checando o banco (#20) | Rota pública antes do `requireAuth`, com `SELECT 1` | — | `curl` → 200 com o banco no ar e 503 com o banco parado, sem derrubar a API |
+| 25 e 26/09/2026 | Claude Code (Opus 5.5) | Pipeline CI/CD único (`ci-cd.yml`, #25): build da imagem, validação com Compose + `/health`, CD publicando no Docker Hub | Jobs `docker` e `cd`, CD com `needs` em todo o CI e só em push na `main`, publicação da mesma imagem validada (`docker save`/`load`) | O job `docker` assumia um Compose diferente do que entrou na `main` e foi adaptado; artefato de imagens restrito à `main`; nomes das imagens corrigidos no README | Pipeline verde no PR #31 (CD *skipped*) e publicação no Docker Hub após o merge |
+| 25 e 26/09/2026 | Claude Code (Opus 5.5) | Ajustar o `backend/Dockerfile` às regras do guia (#34) | Base `node:22.18.0-alpine` fixada, `USER node`, `prisma` em `dependencies` com `npx --no-install`, runtime sem `.ts` | `openssl` incluído depois que o container **não subiu** como `node` no teste; o seed passou a ser compilado (`dist-seed`) para não levar `tsx` à imagem | `docker compose up --build --wait` do zero (3 serviços *healthy*), `whoami` → `node`, API subindo sem internet, login Marido/1234 |
+| 26/09/2026 | Claude Code (Opus 5.5) | Versionamento automático das imagens (#39) | Patch +1 da última tag `vX.Y.Z` a cada merge, tag Git anotada no commit do merge | **Descartado** atualizar o `version` do `package.json` (exigiria commit do pipeline na `main` protegida) | Cenários da lógica testados localmente; após o merge, `v1.0.0` e `v1.0.1` criadas com o mesmo digest no Docker Hub |
+| 26/09/2026 | Claude Code (Opus 5.5) | Parar de publicar a tag com SHA no Docker Hub (#43) | Publicação só com `X.Y.Z` e `latest`; SHA registrado no resumo do job | Como o guia pede tag rastreável, foi acrescentado o parágrafo de rastreabilidade no README §7 (imagem → tag Git → commit) | CI do PR; tags conferidas no Docker Hub após o merge |
+| 26/09/2026 | Claude Code | Mover o Compose para a raiz e subir com um único comando, sem `.env` (#51) | `docker-compose.yml` na raiz, `${VAR:-padrão}` nos dois Compose, pasta `infra/` removida | A sessão de IA não tinha Docker e não rodou a stack: a validação ficou para o CI e para a revisão | Job `docker` do CI subindo a stack sem `.env`; `docker compose config` sem `.env` |
+| 26/09/2026 | Claude Code (Opus 5.5) | Comando único `npm test` na raiz (#52) | `package.json` raiz chamando os testes do backend e do frontend; §6 do README | Pré-requisito de Node 22 (`nvm use`) adicionado ao README: com Node 20 o glob do `tsx --test` falha | Backend 8/8 e frontend 23/23; teste quebrado em cada pacote → código de saída 1 |
+| 26/09/2026 | Claude Code (Opus 5.5) | README §2 (portas) e §8 (variáveis do Compose) (#53) | Tabela de portas por modo, diagrama da rede do Compose, tabela de variáveis com padrão dev/prod | — | Script comparando as variáveis de cada Compose e dos `.env*.example` com a tabela do README |
+| 30/09/2026 | Claude Code (Opus 5.5) | Preencher esta seção a partir do histórico do repositório (#48) | Tabela acima | Entraram só usos com evidência no repositório (co-autoria em commit, texto de PR ou documento) | Conferência com `git log` e os PRs citados; revisão no PR |
 
 ---
 
@@ -445,6 +482,40 @@ No Windows é comum já existir um PostgreSQL nativo na porta 5432 — a aplica�
 conectando nele, com outro usuário e senha. Por isso o banco do `docker-compose.yml`
 é publicado na porta **5433**. Confira se o `DATABASE_URL` usa `localhost:5433` e
 usuário/senha `admin`/`adminpassword`.
+
+**Porta 3333, 8080 ou 5433 ocupada (`bind: address already in use` / `port is already allocated`)**
+Outro processo já usa a porta: em geral o `npm run dev` do backend (3333) junto com o backend
+em container — por isso o passo 3 da seção 3 sobe só o `db` —, ou a stack de desenvolvimento
+e a de entrega (seção 5) rodando ao mesmo tempo. Descubra quem ocupa a porta:
+
+```bash
+lsof -i :3333                 # Linux/macOS
+netstat -ano | findstr 3333   # Windows (a última coluna é o PID)
+docker ps                     # containers que publicam a porta
+```
+
+Encerre o processo (`Ctrl+C` no `npm run dev`) ou a outra stack (`docker compose down`, ou
+`docker compose -f docker-compose.prod.yml down`). Na stack de desenvolvimento dá para trocar
+`API_PORT`, `FRONTEND_PORT` ou `DB_PORT` no `.env` da raiz — ao mudar `API_PORT`, ajuste
+também `VITE_API_URL` e `CORS_ORIGIN` e rode com `--build` (seção 8). Na stack de entrega
+mantenha `API_PORT=3333`: libere a porta em vez de trocá-la.
+
+**`up --wait` estoura o tempo / container `unhealthy`**
+Algum container não passou no healthcheck a tempo. Veja qual e por quê:
+
+```bash
+docker compose ps                         # STATUS mostra quem está unhealthy
+docker compose logs --tail=100 backend    # ou db / frontend
+```
+
+(na stack de entrega, acrescente `-f docker-compose.prod.yml`). Causas comuns:
+- **Banco ainda subindo** (primeira execução, máquina lenta): rode o `up` de novo ou aumente
+  `--wait-timeout`.
+- **Migration falhando** — o log do backend mostra o erro do Prisma.
+- **`P1000 Authentication failed` com `POSTGRES_*` alterados**: as credenciais só valem na
+  criação do volume. Se o volume já existia com outro usuário/senha, o `DATABASE_URL` novo não
+  confere. Deixe `DATABASE_URL` consistente com `POSTGRES_*` e recrie o volume com `down -v`
+  (apaga os dados).
 
 **Login retorna 401 / erro de JWT**
 A variável `JWT_SECRET` não está definida no `backend/.env`. Sem ela a API não consegue
